@@ -1,0 +1,51 @@
+version: '3.1'
+services:
+  mongo:
+    image: mongo
+    restart: always
+    env_file:
+      # Used to authenticate to the mongo database
+      - etc/mongo-auth.env
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - db:/data/db
+      - ./etc/mongod.conf:/etc/mongod.conf
+    command: --config /etc/mongod.conf
+    networks:
+      - network
+
+  model:
+    build:
+      context: ./model
+      dockerfile: Dockerfile
+    env_file:
+      - etc/mongo-auth.env
+      - etc/config.env
+    depends_on:
+      - mongo
+    container_name: model
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./etc/mongod.conf:/etc/mongod.conf
+    networks:
+      - network
+  
+  vue:
+    build:
+      context: ./vue
+      dockerfile: Dockerfile
+    container_name: vue
+    networks:
+      - network
+      
+volumes:
+  db:
+
+networks:
+  network:
+   driver: bridge
+
+  
