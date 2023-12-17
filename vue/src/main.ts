@@ -3,13 +3,15 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import Login from './components/Login.vue';
 import Signup from './components/Signup.vue';
+import Dashboard from './components/Dashboard.vue';
 import CryptoJs from 'crypto-js';
-import cors from 'cors';
+
 
 const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: Login },
   { path: '/signup', component: Signup },
+  { path: '/dashboard', component: Dashboard },
 ];
 
 const router = createRouter({

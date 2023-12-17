@@ -227,9 +227,9 @@ class DBClient:
         """
         self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$set': kwargs})
     
-    def unique_email(self, email : str) -> bool:
+    def user_by_email(self, email : str) -> User:
         """
-        Verify that an email is unique in the database
+        Verify that an email is unique in the database and get the user if it exists
         
         Parameters:
         ----------
@@ -238,11 +238,18 @@ class DBClient:
         
         Returns:
         -------
-        bool
-            True if the email is unique, False otherwise
+        User
+            The user retrieved from the database (None if the user does not exist)
         """
         user = self.users_collection.find_one({'email': email})
-        return user is None
+        if user is None:
+            return None
+        # Convert the id from ObjectId to str
+        user['_id'] = str(user['_id'])
+        # Delete None fields
+        user = {k: v for k, v in user.items() if v is not None}
+        return User(**user)
+        
 
     def save_user(self, user : User) -> str:
         """

@@ -43,9 +43,13 @@
 
         try {
           const response = await axios.post(login_endpoint, data, { withCredentials: true });
-          alert(response.headers);
 
           const response_refresh = await axios.get(this.apiUrl + 'refresh', { withCredentials: true });
+
+          // Redirect to the dashboard
+          alert(response.message);
+          alert(response.encrypted_vault_key);
+          this.$router.push('/dashboard');
         } 
         catch (error) {
           if (error.response.status == 400) {

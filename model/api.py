@@ -30,6 +30,8 @@ JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 * 3 # 3 hours
 def read_root():
     return {"Hello": "World"}
 
+########## Authentication Endpoints ##########
+
 @app.post("/signup")
 def signup(user: User):
     # Verify that the user does not already exist
@@ -48,7 +50,7 @@ def login(user: User):
     authentication_hash = encrypt_password(user.authentication_hash, user.email)
     res = db_client.verify_user(authentication_hash)
     if res is None:
-        if not db_client.unique_email(user.email):
+        if not (db_client.user_by_email(user.email) is None):
             raise HTTPException(status_code=400, detail="Incorrect password")
         else:    
             raise HTTPException(status_code=400, detail="Incorrect email address")
@@ -58,7 +60,7 @@ def login(user: User):
         refresh_token = generate_token(JWT_REFRESH_TOKEN_EXPIRATION, data, os.environ['JWT_SECRET'])
 
         # Set the access and refresh token as a cookie in the response
-        response = JSONResponse(content={"message": "Logged in"})
+        response = JSONResponse(content={"message": "Logged in", "encrypted_vault_key": res.encrypted_vault_key})
         response.set_cookie(key="refresh_token", value=refresh_token, max_age=JWT_REFRESH_TOKEN_EXPIRATION, samesite="none", secure=True, httponly=True)
         return response
     
@@ -83,3 +85,36 @@ def refresh(request : Request):
     response.set_cookie(key="access_token", value=access_token, max_age=JWT_ACCESS_TOKEN_EXPIRATION, samesite="none", secure=True, httponly=True)
 
     return response
+
+@app.get("/logout")
+def logout(request : Request):
+    # Set the access and refresh token as a cookie in the response
+    response = JSONResponse(content={"message": "Logged out"})
+    if "access_token" in request.cookies:
+        response.delete_cookie(key="access_token", samesite="none", secure=True)
+    if "refresh_token" in request.cookies:
+        response.delete_cookie(key="refresh_token", samesite="none", secure=True)
+    return response
+
+########## Data Endpoints ##########
+
+@app.get("/profile")
+def profile(request : Request):
+    # Get the access token from the request
+    access_token = request.cookies.get("access_token")
+    try:
+        data = decrypt_token(access_token, os.environ['JWT_SECRET'])
+    except Exception as e:
+        if str(e) == "Token has expired":
+            raise HTTPException(status_code=401, detail="Access token expired")
+        else:
+            raise HTTPException(status_code=401, detail="Invalid access token")
+    
+    # Get the user from the database
+    user = db_client.user_by_email(data['email'])
+    
+    # Remove the authentication hash and encrypted vault key
+    user.authentication_hash = None ; user.encrypted_vault_key = None
+
+    # Return the user
+    return user
