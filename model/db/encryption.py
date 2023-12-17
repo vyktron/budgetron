@@ -23,7 +23,7 @@ def encrypt_password(password : str, salt : str) -> str:
     # Derive a key from the password using Scrypt and convert to string
     return scrypt.hash(password, salt, N=16384, r=8, p=1).hex()
 
-def generate_token(expiration : int, secret_key : str) -> str:
+def generate_token(expiration : int, data : dict, secret_key : str) -> str:
     """
     Generate a JWT token for authentication (access or refresh)
 
@@ -31,6 +31,8 @@ def generate_token(expiration : int, secret_key : str) -> str:
     ----------
     expiration: int
         The expiration time of the token in seconds
+    data: dict
+        The data to encrypt in the token
     secret_key: str
         The secret key to use for the encryption
     
@@ -40,14 +42,11 @@ def generate_token(expiration : int, secret_key : str) -> str:
         The encrypted token
     """
 
-    # Build an abstract jwk with the secret key
-    jwk = jwt.jwk.JWK.from_pem(secret_key)
-
     # Expiration date needs to be a NumericDate
     expiration_date = datetime.now() + timedelta(seconds=expiration)
 
     # Generate the token
-    return jwt_instance.encode({'exp': expiration_date}, secret_key)
+    return jwt_instance.encode({'exp': expiration_date, **data}, secret_key, algorithm='HS256')
 
 def decrypt_token(token : str, secret_key : str) -> dict:
     """
@@ -64,7 +63,17 @@ def decrypt_token(token : str, secret_key : str) -> dict:
     -------
     dict
         The decrypted token
+    
+    Raises:
+    ------
+    Exception
+        If the token is invalid or has expired
     """
     # Decode the token
-    return jwt_instance.decode(token, secret_key, algorithms=['HS256'])
+    try :
+        return jwt_instance.decode(token, secret_key, algorithms=['HS256'])
+    except jwt.exceptions.ExpiredSignatureError:
+        raise Exception("Token has expired")
+    except:
+        raise Exception("Invalid token")
 

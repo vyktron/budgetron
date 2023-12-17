@@ -4,6 +4,7 @@ import App from './App.vue';
 import Login from './components/Login.vue';
 import Signup from './components/Signup.vue';
 import CryptoJs from 'crypto-js';
+import cors from 'cors';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -20,7 +21,7 @@ const app = createApp(App);
 
 // Global variables
 // Set the API URL globally
-app.config.globalProperties.apiUrl = 'http://0.0.0.0:8089/';
+app.config.globalProperties.apiUrl = 'https://127.0.0.1:8089/';
 
 // Global functions
 // Function to generate AES key of size 512 bits

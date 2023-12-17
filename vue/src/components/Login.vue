@@ -1,7 +1,7 @@
 <template>
   <div>
     <h1>Login</h1>
-    <form @submit="login">
+    <form @submit.prevent="login">
       <label for="email">Email:</label>
       <input type="text" id="email" v-model="email" required>
       <label for="password">Password:</label>
@@ -18,7 +18,6 @@
 
   <script>
   import axios from 'axios';
-
 
   export default {
     data() {
@@ -43,15 +42,19 @@
         const login_endpoint = this.apiUrl + 'login';
 
         try {
-          alert("Attempting to login");
-          const response = await axios.post(login_endpoint, data);
+          const response = await axios.post(login_endpoint, data, { withCredentials: true });
+          alert(response.headers);
 
-          alert(response.data);
-
+          const response_refresh = await axios.get(this.apiUrl + 'refresh', { withCredentials: true });
         } 
         catch (error) {
           if (error.response.status == 400) {
-            alert(error.response.data.message);
+            // Show error details
+            const errorDetails = error.request.response;
+            // Parse the error details
+            const errorDetailsObject = JSON.parse(errorDetails);
+            // Show the error message
+            alert(errorDetailsObject.detail);
           } else {
             alert(error);
           }

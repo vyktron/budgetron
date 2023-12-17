@@ -18,8 +18,8 @@ services:
 
   model:
     build:
-      context: ./model
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: model/Dockerfile
     env_file:
       - etc/mongo-auth.env
       - etc/config.env
@@ -30,6 +30,8 @@ services:
       - "8089:8089"
     volumes:
       - ./etc/mongod.conf:/etc/mongod.conf
+      - ./etc/localhost.key:/etc/localhost.key
+      - ./etc/localhost.crt:/etc/localhost.crt
     networks:
       - network
   

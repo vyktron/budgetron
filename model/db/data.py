@@ -22,14 +22,10 @@ class User(BaseModel):
         The encrypted vault key of the user (will be used to decrypt all other data keys)
     accounts : list[str]
         The list of accounts ids (foreign keys in the database)
-    activated: bool
+    active : bool
         The activation status of the user (default: False)
     active_token: str
         The jwt token used to activate the user
-    access_token: str
-        The jwt token used to access the user data as a authenticated user (short-lived)
-    refresh_token: str
-        The jwt token used to refresh the accessToken (long-lived)
     """
 
     id: str = Field(alias="_id", default=None)
@@ -39,8 +35,6 @@ class User(BaseModel):
     accounts: list = []
     active: bool = False 
     active_token: str = None
-    access_token: str = None
-    refresh_token: str = None
 
 #### Account ####
 

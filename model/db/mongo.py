@@ -208,7 +208,10 @@ class DBClient:
         user = self.users_collection.find_one({'authentication_hash': authentication_hash})
         if user is None:
             return None
+        # Convert the id from ObjectId to str
         user['_id'] = str(user['_id'])
+        # Delete None fields
+        user = {k: v for k, v in user.items() if v is not None}
         return User(**user)
     
     def update_user(self, user_id : str, **kwargs) -> None:

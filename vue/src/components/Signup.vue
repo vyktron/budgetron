@@ -80,7 +80,7 @@ export default {
                 }
             } 
             catch (error) {
-                if (error.response.status == 409) {
+                if (error.request.status == 409) {
                     // Show error details
                     const errorDetails = error.request.response;
                     // Parse the error details

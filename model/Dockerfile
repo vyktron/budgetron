@@ -11,7 +11,9 @@ RUN pip install --upgrade pip
 RUN pip install woob requests uvicorn fastapi scrypt pymongo pyjwt
 
 # Copy the application code to the container
-COPY . ./model
+COPY ./model ./model
+COPY ./etc/server.crt ./etc/server.crt
+COPY ./etc/server.key ./etc/server.key
 
 # Start the FastAPI server
-CMD ["uvicorn", "model.api:app", "--host", "0.0.0.0", "--port", "8089"]
+CMD ["uvicorn", "model.api:app", "--host", "0.0.0.0", "--port", "8089", "--ssl-keyfile", "etc/server.key", "--ssl-certfile", "etc/server.crt"]
