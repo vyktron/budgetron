@@ -1,6 +1,7 @@
 import scrypt
 import jwt
 from datetime import datetime, timedelta
+from cryptography.fernet import Fernet
 
 jwt_instance = jwt.PyJWT()
 

@@ -8,7 +8,7 @@ WORKDIR /model
 # Upgrade pip
 RUN pip install --upgrade pip
 # Install the required Python packages
-RUN pip install woob requests uvicorn fastapi scrypt pymongo pyjwt
+RUN pip install woob requests uvicorn fastapi scrypt pymongo pyjwt cryptography
 
 # Copy the application code to the container
 COPY ./model ./model

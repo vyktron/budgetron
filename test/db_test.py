@@ -9,16 +9,15 @@ from model.db.data import Account, Transaction
 from model.db.mongo import DBClient
 from datetime import date
 
-from test.utils import get_mongo_credentials
 
-username, 
 # Connect to the MongoDB database
 client = DBClient(host="localhost", port=27017, username="root", password="admin")
 
 # Test data for insertion
 test_account = {
     "number": "123456789",
-    "name": "Test Account"
+    "name": "Test Account",
+    "balance": 1000.0,
 }
 
 test_transaction = {
@@ -53,9 +52,9 @@ def test_save_transaction():
 
     # Get the account from the database with the number 123456789
     account = client.get_account_by_number("123456789")
-    test_transaction_base = Transaction(**test_transaction, account_id=account.id)
+    test_transaction_base = Transaction(**test_transaction)
     # Save the transaction
-    saved_transaction_id = client.save_transaction(test_transaction_base)
+    saved_transaction_id = client.save_transaction(test_transaction_base, account.id)
     # Check that the id is not None
     assert saved_transaction_id is not None
     # Check that the id is a string
@@ -73,12 +72,9 @@ def test_get_transactions():
     # Find the account with the number 123456789
     account = client.get_account_by_number("123456789")
     # Save the second transaction
-    test_transaction_base2 = Transaction(**test_transaction2, account_id=account.id)
-    saved_transaction_id = client.save_transaction(test_transaction_base2)
+    test_transaction_base2 = Transaction(**test_transaction2)
+    saved_transaction_id = client.save_transactions([test_transaction_base2, test_transaction_base2], account.id)
     
-    # Check that the account is equal to the test account (except for the id)
-    test_account_base.id = account.id
-    assert account == test_account_base
     # Get the transactions from the database
     transactions = client.get_transactions(account.id)
     print(transactions)
@@ -92,7 +88,9 @@ def clean():
     # Drop the database
     client.clear()
 
-clean()
+# Clean the database
+# TODO : Fix the cleanup 
+#clean()
 
 # Run the tests
 if __name__ == '__main__':

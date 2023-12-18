@@ -6,7 +6,7 @@ import os
 
 from model.db.data import User, Account, Transaction
 from model.db.mongo import DBClient
-from model.db.encryption import encrypt_password, generate_token, decrypt_token
+from model.db.encryption import *
 
 app = FastAPI()
 
@@ -17,7 +17,7 @@ db_client = DBClient(host="mongo", port=27017, username=username, password=passw
 # Allow all origins (adjust according to your security requirements)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"], #TODO change this to the frontend url
     allow_credentials=True,
     allow_methods=["GET", "POST", "HEAD", "OPTIONS"],
     allow_headers=["set-cookie", "content-type"],
@@ -35,7 +35,7 @@ def read_root():
 @app.post("/signup")
 def signup(user: User):
     # Verify that the user does not already exist
-    if not db_client.unique_email(user.email):
+    if not (db_client.user_by_email(user.email) is None):
         raise HTTPException(status_code=409, detail="Email already exists")
     else :
         # Save the user
@@ -52,7 +52,7 @@ def login(user: User):
     if res is None:
         if not (db_client.user_by_email(user.email) is None):
             raise HTTPException(status_code=400, detail="Incorrect password")
-        else:    
+        else:
             raise HTTPException(status_code=400, detail="Incorrect email address")
     else:
         # Generate a long-lived refresh token
@@ -109,6 +109,8 @@ def profile(request : Request):
             raise HTTPException(status_code=401, detail="Access token expired")
         else:
             raise HTTPException(status_code=401, detail="Invalid access token")
+        
+        #TODO Handle refresh token (on the frontend side)
     
     # Get the user from the database
     user = db_client.user_by_email(data['email'])
@@ -118,3 +120,24 @@ def profile(request : Request):
 
     # Return the user
     return user
+
+@app.get("/accounts")
+def accounts(request : Request):
+    # Get the access token from the request
+    access_token = request.cookies.get("access_token")
+    try:
+        data = decrypt_token(access_token, os.environ['JWT_SECRET'])
+    except Exception as e:
+        if str(e) == "Token has expired":
+            raise HTTPException(status_code=401, detail="Access token expired")
+        else:
+            raise HTTPException(status_code=401, detail="Invalid access token")
+    
+    # Get the user from the database
+    user = db_client.user_by_email(data['email'])
+
+    # Get the accounts from the database
+    accounts = db_client.get_accounts(user)
+    print(accounts)
+    # Return the accounts
+    return accounts

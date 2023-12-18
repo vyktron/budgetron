@@ -41,13 +41,15 @@ export default {
         this.fetchAccounts();
     },
     methods: {
-        fetchUserProfile() {
-            // Call server API to retrieve user profile
-            // Assign the response to this.userProfile
+        async fetchUserProfile() {
+            const profile_endpoint = this.apiUrl + 'profile';
+            const response = await axios.get(profile_endpoint, { withCredentials: true });
+            this.userProfile = response.data;
         },
-        fetchAccounts() {
-            // Call server API to retrieve users
-            // Assign the response to this.users
+        async fetchAccounts() {
+            const accounts_endpoint = this.apiUrl + 'accounts';
+            const response = await axios.get(accounts_endpoint, { withCredentials: true });
+            this.accounts = response.data;           
         },
         async logout() {
             const logout_endpoint = this.apiUrl + 'logout';
