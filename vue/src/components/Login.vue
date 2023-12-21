@@ -44,7 +44,7 @@
         try {
           const response = await axios.post(login_endpoint, data, { withCredentials: true });
 
-          const response_refresh = await axios.get(this.apiUrl + 'refresh', { withCredentials: true });
+          this.refreshToken();
 
           this.$router.push('/dashboard');
         } 

@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from model.db.data import Account, Transaction, User
+from model.db.data import Account, Transaction, User, Bank
 from bson.objectid import ObjectId
 import json
 
@@ -23,10 +23,11 @@ class DBClient:
         self.client = MongoClient(host, port, username=username, password=password)
         self.db = self.client['budgetron']
         self.users_collection = self.db['users']
+        self.banks_collection = self.db['banks']
         self.accounts_collection = self.db['accounts']
         self.transactions_collection = self.db['transactions']
     
-    def save_account(self, account : Account) -> str:
+    def save_account(self, account : Account, bank_id : str) -> str:
         """
         Save an account in the database
         
@@ -34,6 +35,8 @@ class DBClient:
         ----------
         account: Account
             The account to save
+        bank_id: str
+            The id of the bank to save the account in
         
         Returns:
         -------
@@ -61,6 +64,10 @@ class DBClient:
         saved_account = self.accounts_collection.insert_one(account_dict)
         if saved_account is None:
             raise Exception("Failed to save account")
+        
+        # Add the account id to the bank
+        self.banks_collection.update_one({'_id': ObjectId(bank_id)}, {'$push': {'accounts': str(saved_account.inserted_id)}})
+        
         return str(saved_account.inserted_id)
     
     def save_transactions(self, transactions : list[Transaction], account_id : str) -> list[str]:
@@ -100,10 +107,13 @@ class DBClient:
         if saved_transactions is None:
             raise Exception("Failed to save transactions")
         
-        # Add the transactions ids to the account
-        self.accounts_collection.update_one({'_id': ObjectId(account_id)}, {'$push': {'transactions': {'$each': saved_transactions.inserted_ids}}})
+        # Convert the ids from ObjectId to str
+        inserted_ids_str = [str(t) for t in saved_transactions.inserted_ids]
 
-        return [str(t) for t in saved_transactions.inserted_ids]
+        # Add the transactions ids to the account
+        self.accounts_collection.update_one({'_id': ObjectId(account_id)}, {'$push': {'transactions': {'$each': inserted_ids_str}}})
+
+        return inserted_ids_str
     
     def save_transaction(self, transaction : Transaction, account_id : str) -> str:
 
@@ -157,14 +167,14 @@ class DBClient:
             return None
         return Account(**account)
     
-    def get_accounts(self, user : User) -> list[Account]:
+    def get_accounts(self, bank : Bank) -> list[Account]:
         """
-        Get all the accounts from a user
+        Get all the accounts from a bank account
         
         Parameters:
         ----------
-        user_id: str
-            The id of the user to get the accounts from
+        bank: Bank
+            The bank account to get the accounts from
         
         Returns:
         -------
@@ -172,7 +182,7 @@ class DBClient:
             The list of accounts retrieved from the database
         """
         
-        accounts = self.accounts_collection.find({'_id': {'$in': [ObjectId(a) for a in user.accounts]}})
+        accounts = self.accounts_collection.find({'_id': {'$in': [ObjectId(a) for a in bank.accounts]}})
         
         if accounts is None:
             return None
@@ -204,13 +214,13 @@ class DBClient:
             return None
         return Transaction(**transaction)
     
-    def get_transactions(self, account_id : str) -> list[Transaction]:
+    def get_transactions(self, account : Account) -> list[Transaction]:
         """
         Get all the transactions from an account
         
         Parameters:
         ----------
-        account_id: str
+        account: Account
             The id of the account to get the transactions from
         
         Returns:
@@ -218,13 +228,9 @@ class DBClient:
         list[Transaction]
             The list of transactions retrieved from the database
         """
-        account = self.get_account(account_id)
-        if account is None:
-            return None
-        
+
         transactions = self.transactions_collection.find({'_id': {'$in': [ObjectId(t) for t in account.transactions]}})
         
-
         if transactions is None:
             return None
         
@@ -323,6 +329,68 @@ class DBClient:
         if saved_user is None:
             raise Exception("Failed to save user")
         return str(saved_user.inserted_id)
+    
+    def save_bank(self, bank : Bank, user_id : str) -> str:
+        """
+        Save a bank in the database
+        
+        Parameters:
+        ----------
+        bank: Bank
+            The bank to save
+        user_id: str
+            The id of the user to save the bank in
+        
+        Returns:
+        -------
+        str
+            The id of the saved bank
+        
+        Raises:
+        ------
+        Exception
+            If the bank insertion failed
+        """
+
+        # Remove the id field from the bank
+        bank_dict = bank.model_dump()
+        del bank_dict['id']
+
+        # Handle failed insertion
+        saved_bank = self.banks_collection.insert_one(bank_dict)
+        if saved_bank is None:
+            raise Exception("Failed to save bank")
+        
+        # Add the bank id to the user
+        self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$push': {'banks': str(saved_bank.inserted_id)}})
+        return str(saved_bank.inserted_id)
+    
+    def get_banks(self, user : User) -> list[Bank]:
+        """
+        Get all the banks from a user
+        
+        Parameters:
+        ----------
+        user: User
+            The user to get the banks from
+        
+        Returns:
+        -------
+        list[Bank]
+            The list of banks retrieved from the database
+        """
+        
+        banks = self.banks_collection.find({'_id': {'$in': [ObjectId(b) for b in user.banks]}})
+        
+        if banks is None:
+            return None
+        
+        res = []
+        for b in banks:
+            b['_id'] = str(b['_id'])
+            b['accounts'] = [str(a) for a in b['accounts']]
+            res.append(Bank(**b))
+        return res
 
     def clear(self):
         """

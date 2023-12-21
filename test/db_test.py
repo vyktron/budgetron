@@ -79,8 +79,10 @@ def test_get_transactions():
     transactions = client.get_transactions(account.id)
     print(transactions)
     # Check that the transactions are equal to the test transactions (except for the id and the date)
-    test_transaction_base2.id = saved_transaction_id
-    assert test_transaction_base2 in transactions and len(transactions) == 2
+    test_transaction_base2.id = saved_transaction_id[0]
+    test_transaction_base3 = Transaction(**test_transaction2)
+    test_transaction_base3.id = saved_transaction_id[1]
+    assert test_transaction_base2 in transactions and test_transaction_base3 in transactions and len(transactions) == 3
 
 def clean():
     # Backup the database
@@ -89,8 +91,7 @@ def clean():
     client.clear()
 
 # Clean the database
-# TODO : Fix the cleanup 
-#clean()
+clean()
 
 # Run the tests
 if __name__ == '__main__':

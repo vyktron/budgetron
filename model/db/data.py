@@ -20,8 +20,8 @@ class User(BaseModel):
         The authentication hash of the user
     encrypted_vault_key: str
         The encrypted vault key of the user (will be used to decrypt all other data keys)
-    accounts : list[str]
-        The list of accounts ids (foreign keys in the database)
+    banks: list[str]
+        The list of banks ids (foreign keys in the database)
     active : bool
         The activation status of the user (default: False)
     active_token: str
@@ -32,9 +32,38 @@ class User(BaseModel):
     email: str
     authentication_hash : str
     encrypted_vault_key: str = None
-    accounts: list = []
+    banks: list = []
     active: bool = False 
     active_token: str = None
+
+#### Bank ####
+
+class Bank(BaseModel):
+
+    """
+    Base class for the Bank model
+
+    Attributes:
+    ----------
+    id : str
+        The id of the bank (primary key in the database)
+    name : str
+        The name of the bank
+    client_number : str
+        The client number of the user in the bank
+    website : str
+        The website of the bank
+    module : str
+        The woob module name for the bank institution
+    accounts : list[str]
+        The list of accounts ids (foreign keys in the database)
+    """
+    id: str = Field(alias="_id", default=None)
+    name: str
+    website: str = None
+    client_number: str = None
+    module: str = None
+    accounts: list = []
 
 #### Account ####
 

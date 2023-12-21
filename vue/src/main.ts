@@ -5,6 +5,7 @@ import Login from './components/Login.vue';
 import Signup from './components/Signup.vue';
 import Dashboard from './components/Dashboard.vue';
 import CryptoJs from 'crypto-js';
+import axios from 'axios';
 
 
 const routes = [
@@ -41,7 +42,20 @@ app.config.globalProperties.decrypt = function (data : string, key : string) {
 // Function to generate SHA256 hash of size 512 bits with SHA256
 app.config.globalProperties.hash = function (data : string, salt : string, iterations : number) {
   return CryptoJs.PBKDF2(data, salt, { keySize: 512/32, iterations: iterations, hasher: CryptoJs.algo.SHA256 }).toString();
-}
+};
+
+// Function to refresh the access token if it is expired
+app.config.globalProperties.refreshToken = function () {
+  axios.get(app.config.globalProperties.apiUrl + 'log/refresh', { withCredentials: true })
+    .then((response) => {
+      // Return the status code
+      if (response.status != 200) {
+        // Push to login page if the refresh token is expired
+        router.push('/login');
+      }
+      return response.status;
+    })
+};
 
 app.use(router);
 app.mount('#app');

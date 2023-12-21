@@ -4,9 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import os
 
-from model.db.data import User, Account, Transaction
+from model.db.data import User, Account, Transaction, Bank
 from model.db.mongo import DBClient
 from model.db.encryption import *
+from model.extract import BankDataExtractor, WebsiteProvider
 
 app = FastAPI()
 
@@ -25,10 +26,6 @@ app.add_middleware(
 
 JWT_ACCESS_TOKEN_EXPIRATION = 60 * 15 # 15 minutes
 JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 * 3 # 3 hours
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
 
 ########## Authentication Endpoints ##########
 
@@ -61,10 +58,10 @@ def login(user: User):
 
         # Set the access and refresh token as a cookie in the response
         response = JSONResponse(content={"message": "Logged in", "encrypted_vault_key": res.encrypted_vault_key})
-        response.set_cookie(key="refresh_token", value=refresh_token, max_age=JWT_REFRESH_TOKEN_EXPIRATION, samesite="none", secure=True, httponly=True)
+        response.set_cookie(key="refresh_token", value=refresh_token, max_age=JWT_REFRESH_TOKEN_EXPIRATION, samesite="none", secure=True, httponly=True, path="/log")
         return response
-    
-@app.get("/refresh")
+
+@app.get("/log/refresh")
 def refresh(request : Request):
 
     # Get the refresh token from the request
@@ -72,10 +69,7 @@ def refresh(request : Request):
     try:
         data = decrypt_token(refresh_token, os.environ['JWT_SECRET'])
     except Exception as e:
-        if str(e) == "Token has expired":
-            raise HTTPException(status_code=401, detail="Refresh token expired")
-        else:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
     
     # Generate a new access token
     access_token = generate_token(JWT_ACCESS_TOKEN_EXPIRATION, data, os.environ['JWT_SECRET'])
@@ -86,58 +80,77 @@ def refresh(request : Request):
 
     return response
 
-@app.get("/logout")
+@app.get("/log/out")
 def logout(request : Request):
     # Set the access and refresh token as a cookie in the response
     response = JSONResponse(content={"message": "Logged out"})
     if "access_token" in request.cookies:
-        response.delete_cookie(key="access_token", samesite="none", secure=True)
+        response.delete_cookie(key="access_token", samesite="none", secure=True, httponly=True)
     if "refresh_token" in request.cookies:
-        response.delete_cookie(key="refresh_token", samesite="none", secure=True)
+        response.delete_cookie(key="refresh_token", samesite="none", secure=True, httponly=True, path="/log")
     return response
 
-########## Data Endpoints ##########
+########## Protected Data Endpoints ##########
 
-@app.get("/profile")
-def profile(request : Request):
-    # Get the access token from the request
-    access_token = request.cookies.get("access_token")
+@app.get("/data")
+def data(request: Request):
+    # Verify the access token
     try:
+        # Get the access token from the request
+        access_token = request.cookies.get("access_token")
         data = decrypt_token(access_token, os.environ['JWT_SECRET'])
     except Exception as e:
-        if str(e) == "Token has expired":
-            raise HTTPException(status_code=401, detail="Access token expired")
-        else:
-            raise HTTPException(status_code=401, detail="Invalid access token")
-        
-        #TODO Handle refresh token (on the frontend side)
-    
+        raise HTTPException(status_code=401, detail="Invalid access token")
+
     # Get the user from the database
-    user = db_client.user_by_email(data['email'])
-    
+    user = db_client.user_by_email(data["email"])
+
     # Remove the authentication hash and encrypted vault key
-    user.authentication_hash = None ; user.encrypted_vault_key = None
+    user.authentication_hash = None
+    user.encrypted_vault_key = None
 
-    # Return the user
-    return user
+    # Get the banks from the database
+    banks = db_client.get_banks(user)
 
-@app.get("/accounts")
-def accounts(request : Request):
-    # Get the access token from the request
-    access_token = request.cookies.get("access_token")
+    accounts = []
+    # Get the accounts from the database
+    for bank in banks:
+        accounts += db_client.get_accounts(bank)
+
+    transactions = []
+    # Get the transactions from the database
+    for account in accounts:
+        transactions = db_client.get_transactions(account)
+
+    return {"user": user, "banks": banks, "accounts": accounts, "transactions": transactions}
+
+@app.post("/add_bank")
+def update(bank: Bank, request: Request):
+
+    # Verify the access token
     try:
+        # Get the access token from the request
+        access_token = request.cookies.get("access_token")
         data = decrypt_token(access_token, os.environ['JWT_SECRET'])
     except Exception as e:
-        if str(e) == "Token has expired":
-            raise HTTPException(status_code=401, detail="Access token expired")
-        else:
-            raise HTTPException(status_code=401, detail="Invalid access token")
-    
-    # Get the user from the database
-    user = db_client.user_by_email(data['email'])
+        raise HTTPException(status_code=401, detail="Invalid access token")
 
-    # Get the accounts from the database
-    accounts = db_client.get_accounts(user)
-    print(accounts)
-    # Return the accounts
-    return accounts
+    # Get the user from the database
+    user = db_client.user_by_email(data['sub'])
+
+    # Save the bank
+    inserted_id = db_client.save_bank(bank, user.id)
+
+    return {"id": inserted_id}
+
+## Endpoints to get the supported banks modules ##
+
+@app.get("/banks")
+def banks(request: Request):
+    wp = WebsiteProvider()
+    return {"banks": wp.get_banks()}
+
+@app.post("/websites")
+def websites(bank: Bank, request: Request):
+    wp = WebsiteProvider()
+    return {"websites": wp.get_websites(bank.name)}

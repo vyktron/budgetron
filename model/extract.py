@@ -11,10 +11,22 @@ class BankDataExtractor:
         self.bank_module = bank_module
 
     def extract_data(self) -> (list, list):
+        """
+        Extract the data from the bank website
+        
+        Returns:
+        -------
+        list
+            The accounts
+        list
+            The list of the history of each account
+        """
         w = Woob()
         w.load_backend(self.bank_module, 'bankend_'+self.bank_module, {'website': self.website, 'login': self.login, 'password': self.password})
         accounts = list(w.iter_accounts())
-        history = list(w.iter_history(accounts[0]))
+        history = []
+        for account in accounts:
+            history.append(list(w.iter_history(account)))
         return accounts, history
 
     def save_history(self, history):
@@ -26,10 +38,6 @@ class BankDataExtractor:
             writer.writeheader()
             for row in history:
                 writer.writerow({'date': str(row.date), 'label': row.label, 'amount': str(float(row.amount))})
-
-
-bankdataextractor = BankDataExtractor('www.ca-charente-perigord.fr', 'XXXXXXXXX', 'XXXXXX', 'cragr')
-print(bankdataextractor.extract_data())
 
 
 class WebsiteProvider:
@@ -80,9 +88,12 @@ class WebsiteProvider:
                 {'login' : 'Identifiant à 11 chiffres'}, 
                 {'password':'Code personnel à 6 chiffres'}]
             }
-
-    def get_websites(self, module):
-        return self.modules.get(module, [])
+        
+    def get_banks(self) -> list:
+        return list(self.modules.keys())
+    
+    def get_websites(self, bank : str) -> list:
+        return list(self.modules[bank][1]['website'])
 
 
 """

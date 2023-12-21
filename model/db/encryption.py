@@ -1,7 +1,10 @@
 import scrypt
 import jwt
 from datetime import datetime, timedelta
-from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+import base64
 
 jwt_instance = jwt.PyJWT()
 
@@ -78,3 +81,40 @@ def decrypt_token(token : str, secret_key : str) -> dict:
     except:
         raise Exception("Invalid token")
 
+def decrypt_aes(ciphertext: str, key: str) -> str:
+    """
+    Decrypt a string encrypted with AES
+
+    Parameters:
+    ----------
+    ciphertext: str
+        The ciphertext to decrypt
+    key: str
+        The key to use for decryption
+    
+    Returns:
+    -------
+    str
+        The decrypted plaintext
+    """
+    # Convert the key to bytes
+    key_bytes = key.encode('utf-8')
+
+    # Decode the ciphertext from base64
+    ciphertext_bytes = base64.b64decode(ciphertext)
+
+    # Create a cipher object with AES algorithm and CBC mode
+    cipher = Cipher(algorithms.AES(key_bytes), modes.CBC(b'\x00' * 16), backend=default_backend())
+
+    # Create a decryptor object
+    decryptor = cipher.decryptor()
+
+    # Decrypt the ciphertext
+    plaintext_bytes = decryptor.update(ciphertext_bytes) + decryptor.finalize()
+
+    # Remove padding
+    unpadder = padding.PKCS7(128).unpadder()
+    plaintext_unpadded = unpadder.update(plaintext_bytes) + unpadder.finalize()
+
+    # Convert the plaintext to string
+    return plaintext_unpadded.decode('utf-8')
