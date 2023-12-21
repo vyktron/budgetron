@@ -355,7 +355,6 @@ class DBClient:
         # Remove the id field from the bank
         bank_dict = bank.model_dump()
         del bank_dict['id']
-
         # Handle failed insertion
         saved_bank = self.banks_collection.insert_one(bank_dict)
         if saved_bank is None:

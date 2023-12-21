@@ -85,15 +85,24 @@ class WebsiteProvider:
                     'www.ca-valdefrance.fr': 'Val de France',
                     'www.ca-pyrenees-gascogne.fr': 'Pyrénées Gascogne',
                     }}, 
-                {'login' : 'Identifiant à 11 chiffres'}, 
-                {'password':'Code personnel à 6 chiffres'}]
+                {'login' : '11-digit ID'}, 
+                {'password':'6-digit personal code'}]
             }
         
     def get_banks(self) -> list:
         return list(self.modules.keys())
     
+    def get_bank_module(self, bank : str) -> str:
+        return self.modules[bank][0]
+    
     def get_websites(self, bank : str) -> list:
         return list(self.modules[bank][1]['website'])
+    
+    def get_login_conditions(self, bank : str) -> dict:
+        return self.modules[bank][2]['login']
+    
+    def get_password_conditions(self, bank : str) -> dict:
+        return self.modules[bank][3]['password']
 
 
 """

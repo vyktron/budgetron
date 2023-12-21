@@ -53,17 +53,20 @@ class Bank(BaseModel):
         The client number of the user in the bank
     website : str
         The website of the bank
-    module : str
-        The woob module name for the bank institution
     accounts : list[str]
         The list of accounts ids (foreign keys in the database)
+    enc_aes_key : str
+        The encrypted AES key used to encrypt the data of the bank
+    random_iv : str
+        The random iv used to encrypt the data of the bank
     """
     id: str = Field(alias="_id", default=None)
     name: str
     website: str = None
     client_number: str = None
-    module: str = None
     accounts: list = []
+    enc_aes_key: str = None
+    random_iv: str = None
 
 #### Account ####
 
@@ -84,6 +87,10 @@ class Account(BaseModel):
         The account balance
     transactions: list[str]
         The list of transactions ids (foreign keys in the database)
+    enc_aes_key: str
+        The encrypted AES key used to encrypt the data of the account
+    random_iv: str
+        The random iv used to encrypt the data of the account
     """
 
     id: str = Field(alias="_id", default=None)
@@ -91,6 +98,9 @@ class Account(BaseModel):
     name: str
     balance: float = 0.0
     transactions: list = []
+    enc_aes_key: str = None
+    random_iv: str = None
+
 
 #### Transaction ####
 
@@ -112,6 +122,10 @@ class Transaction(BaseModel):
         The description of the transaction
     category: str
         The category of the transaction
+    enc_aes_key: str
+        The encrypted AES key used to encrypt the data of the transaction
+    random_iv: str
+        The random iv used to encrypt the data of the transaction
     """
 
     id: str = Field(alias="_id", default=None)
@@ -119,3 +133,5 @@ class Transaction(BaseModel):
     amount: float
     description: str
     category: str = "To categorize"
+    enc_aes_key: str = None
+    random_iv: str = None

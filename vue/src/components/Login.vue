@@ -18,7 +18,7 @@
 
   <script>
   import axios from 'axios';
-
+  import ls from 'localstorage-slim';
   export default {
     data() {
         return {
@@ -31,6 +31,7 @@
         // Generate the master key from the password and email
         this.master_key = this.hash(this.password, this.email, 10000);
 
+        
         // Send the email and password hash to your backend for storage
         const data = {
           // Send the email in plaintext
@@ -44,8 +45,16 @@
         try {
           const response = await axios.post(login_endpoint, data, { withCredentials: true });
 
-          this.refreshToken();
+          // Clear the password from memory
+          this.password = '';
+        
+          await this.refreshToken();
 
+          const vault_key = await this.getVaultKey(this.master_key);
+          this.master_key = '';
+          // Store the master key
+          ls.set('vault_key', vault_key, {ttl : 60*60*1000, encrypt: true});
+          
           this.$router.push('/dashboard');
         } 
         catch (error) {
@@ -60,7 +69,16 @@
             alert(error);
           }
         }
-      }
+      },
+      async getVaultKey(master_key) {
+            const vault_key_endpoint = this.apiUrl + 'vault';
+            try {
+                const response = await axios.get(vault_key_endpoint, { withCredentials: true });
+                return this.decrypt(response.data.key, master_key);
+            } catch (error) {
+                console.log(error);
+            }
+        },
     }
   };
   </script>

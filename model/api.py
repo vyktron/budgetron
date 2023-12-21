@@ -11,6 +11,8 @@ from model.extract import BankDataExtractor, WebsiteProvider
 
 app = FastAPI()
 
+#TODO Handle 401 errors messages and when Server is down
+
 # Connect to the MongoDB database
 username, password = os.environ['MONGO_INITDB_ROOT_USERNAME'], os.environ['MONGO_INITDB_ROOT_PASSWORD']
 db_client = DBClient(host="mongo", port=27017, username=username, password=password)
@@ -24,8 +26,8 @@ app.add_middleware(
     allow_headers=["set-cookie", "content-type"],
 )
 
-JWT_ACCESS_TOKEN_EXPIRATION = 60 * 15 # 15 minutes
-JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 * 3 # 3 hours
+JWT_ACCESS_TOKEN_EXPIRATION = 5*60 # 5 minutes
+JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 # 1 hour
 
 ########## Authentication Endpoints ##########
 
@@ -90,10 +92,9 @@ def logout(request : Request):
         response.delete_cookie(key="refresh_token", samesite="none", secure=True, httponly=True, path="/log")
     return response
 
-########## Protected Data Endpoints ##########
+########## Utils ##########
 
-@app.get("/data")
-def data(request: Request):
+def verify_access_token(request: Request):
     # Verify the access token
     try:
         # Get the access token from the request
@@ -101,7 +102,22 @@ def data(request: Request):
         data = decrypt_token(access_token, os.environ['JWT_SECRET'])
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid access token")
+    return data
 
+########## Protected Data Endpoints ##########
+
+@app.get("/vault")
+def vault(request : Request):
+    # Verify the access token
+    data = verify_access_token(request)
+    # Get the user from the database
+    user = db_client.user_by_email(data["email"])
+    return {"key": user.encrypted_vault_key}
+
+@app.get("/data")
+def data(request: Request):
+    # Verify the access token
+    data = verify_access_token(request)
     # Get the user from the database
     user = db_client.user_by_email(data["email"])
 
@@ -125,32 +141,45 @@ def data(request: Request):
     return {"user": user, "banks": banks, "accounts": accounts, "transactions": transactions}
 
 @app.post("/add_bank")
-def update(bank: Bank, request: Request):
+def add_bank(bank: Bank, request: Request):
 
     # Verify the access token
-    try:
-        # Get the access token from the request
-        access_token = request.cookies.get("access_token")
-        data = decrypt_token(access_token, os.environ['JWT_SECRET'])
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid access token")
-
+    data = verify_access_token(request)
     # Get the user from the database
-    user = db_client.user_by_email(data['sub'])
+    user = db_client.user_by_email(data['email'])
 
     # Save the bank
     inserted_id = db_client.save_bank(bank, user.id)
-
+    
     return {"id": inserted_id}
 
 ## Endpoints to get the supported banks modules ##
 
 @app.get("/banks")
 def banks(request: Request):
+    # Verify the access token
+    _ = verify_access_token(request)
     wp = WebsiteProvider()
     return {"banks": wp.get_banks()}
 
 @app.post("/websites")
 def websites(bank: Bank, request: Request):
+    # Verify the access token
+    _ = verify_access_token(request)
     wp = WebsiteProvider()
-    return {"websites": wp.get_websites(bank.name)}
+    return {"websites": wp.get_websites(bank.name), }
+
+@app.post("/login_format")
+def login_website(bank: Bank, request: Request):
+    # Verify the access token
+    _ = verify_access_token(request)
+    wp = WebsiteProvider()
+    return {"login_format": wp.get_login_conditions(bank.name)}
+
+@app.post("/password_format")
+def password_website(bank: Bank, request: Request):
+    # Verify the access token
+    _ = verify_access_token(request)
+    wp = WebsiteProvider()
+    return {"password_format": wp.get_password_conditions(bank.name)}
+

@@ -21,18 +21,43 @@
     },
     mounted() {
       
-      const websitess_endpoint = this.apiUrl + "websites";
-      const data = {name : this.$parent.bankFormData.brand};
+      const websites_endpoint = this.apiUrl + "websites";
+      const data = {name : this.$parent.bankFormData.name};
       axios
-        .post(websitess_endpoint, data, { withCredentials: true })
+        .post(websites_endpoint, data, { withCredentials: true })
         .then((response) => {
-          this.websites = this.websites.concat(response.data.websites);
-          this.selectedWebsite = this.websites[0];
+          this.setValues(response);
+        })
+        .catch((error) => {
+          // Refresh the access token if it has expired
+          if (error.response.status === 401) {
+            const refresh_status = this.refreshAccessToken();
+            if (refresh_status == 200) {
+              axios
+                .post(websites_endpoint, data, { withCredentials: true })
+                .then((response) => {
+                  this.setValues(response);
+              });
+            }
+          }
         });
     },
     methods: {
+      setValues(response) {
+        this.websites = this.websites.concat(response.data.websites);
+        // Test if bankFormData is empty
+        if (Object.keys(this.$parent.bankFormData).length > 1 && this.websites.includes(this.$parent.bankFormData.website)) {
+          
+          this.selectedWebsite = this.$parent.bankFormData.website;
+        }
+        else {this.selectedWebsite = this.websites[0];}
+      },
       nextStep() {
-        this.$emit("next");
+        if (this.selectedWebsite=== this.websites[0]) {
+          alert("Please select a website");
+          return;
+        }
+        this.$emit("next", { website: this.selectedWebsite });
       },
       prevStep() {
         this.$emit("prev");
