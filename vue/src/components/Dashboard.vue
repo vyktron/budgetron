@@ -2,49 +2,57 @@
     <div class="dashboard">
         <div class="sidebar">
             <div class="profile">
-                <h3>{{ userProfile.email }}</h3>
+                <h4>{{ userProfile.email.substring(0, userProfile.email.indexOf('@')) }}</h4>
             </div>
-            <button @click="logout">Logout</button>
+            <div @click="logout" class="close-button"><span class="icon"><img src="../assets/logout.svg"/></span><span class="text">&nbsp;Log Out</span></div>
         </div>
         <div class="content">
+            <div @click="showUpdateForm = true" class="button-text"><span class="icon"><img src="../assets/refresh_2_line.svg"/></span><span class="text">Last update - yesterday</span></div>
+            <div class="banks">
+                <table>
+                    <tbody>
+                        <tr>
+                            <th><span class="icon"><img src="../assets/bank_line.svg"/></span><span class="text">Bank</span></th>
+                            <th><span class="icon"><img src="../assets/IDcard_line.svg"/></span><span class="text">ID</span></th>
+                            <th> </th>
+                        </tr>
+                        <tr v-for="bank in banks" :key="bank.name">
+                            <td>{{ bank.name }}</td>
+                            <td>{{ bank.client_number }}</td>
+                            <td><img class="close-button" src="../assets/delete_2_line.svg"/></td>
+                        </tr>
+                    </tbody>
+                    <div @click="showBankForm = true" class="open-button"><img class="icon" src="../assets/add_circle_line.svg"/><span class="text">Add Bank</span></div>
+                </table>
+            </div>
             <div class="account">
-                <h2>Accounts</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th>Number</th>
-                            <th>Name</th>
-                            <th>Balance</th>
+                            <th><span class="icon"><img src="../assets/hashtag_line.svg"/></span><span class="text">Account</span></th>
+                            <th><span class="icon"><img src="../assets/currency_euro_line.svg"/></span><span class="text">Balance</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="account in accounts" :key="account.number">
-                            <td>{{ account.number }}</td>
                             <td>{{ account.name }}</td>
                             <td>{{ account.balance }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div class="banks">
-                <h2>Banks</h2>
-                <table>
-                    <tbody>
-                        <tr v-for="bank in banks" :key="bank.name">
-                            <td>{{ bank.name }}</td>
-                            <td>{{ bank.website }}</td>
-                            <td>{{ bank.client_number }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <button @click="showBankForm = true">Add Bank</button>
-            </div>
             
             <!-- Use the dynamic form component -->
             <div v-if="showBankForm" class="popup">
                 <div class="popup-content">
-                    <img class="close-button" @click="closeBankForm" src="../assets/close_line.svg"/>
+                    <div class="right-close"><img class="close-button" @click="closeBankForm" src="../assets/close_line.svg"/></div>
                     <component :is="currentBankStepComponent" @next="nextBankStep" @prev="prevBankStep" @submit="submitBankForm" :data="bankFormData"></component>
+                </div>
+            </div>
+            <div v-if="showUpdateForm" class="popup">
+                <div class="popup-content">
+                    <div class="right-close"><img class="close-button" @click="closeUpdateForm" src="../assets/close_line.svg"/></div>
+                    <UpdateForm />
                 </div>
             </div>
         </div>
@@ -53,16 +61,14 @@
 
 <script>
 import axios from 'axios';
-import Step1 from './addbank/Step1.vue';
-import Step2 from './addbank/Step2.vue';
-import Step3 from './addbank/Step3.vue';
+import BankStep1 from './addbank/Step1.vue'; import BankStep2 from './addbank/Step2.vue'; import BankStep3 from './addbank/Step3.vue';
+import UpdateForm from './update/Form.vue';
 import './Dashboard.css'; // Import Dashboard.css file
 import ls from 'localstorage-slim';
 export default {
     components: {
-        Step1,
-        Step2,
-        Step3,
+        BankStep1, BankStep2, BankStep3,
+        UpdateForm
     },
     data() {
         return {
@@ -70,9 +76,10 @@ export default {
             banks: [],
             accounts: [],
             transactions: [],
-            showBankForm: false,
+            showBankForm: false, 
+            showUpdateForm: false,
             currentBankStep: 1,
-            bankFormData: {},
+            bankFormData: {}, updateFormData: {},
             aes_key: '',
         };
     },
@@ -81,15 +88,14 @@ export default {
     },
     computed: {
         currentBankStepComponent() {
-            return `Step${this.currentBankStep}`;
+            return `BankStep${this.currentBankStep}`;
         },
     },
     methods: {
         async fetchUserData() {
             const profile_endpoint = this.apiUrl + 'data';
-
-            try {
-                const response = await axios.get(profile_endpoint, { withCredentials: true });
+            await axios.get(profile_endpoint, { withCredentials: true })
+            .then((response) => {
                 this.userProfile = response.data.user;
                 this.banks = response.data.banks;
                 this.accounts = response.data.accounts;
@@ -99,34 +105,43 @@ export default {
                 const vault_key = ls.get('vault_key', {decrypt: true});
                 for (const bank of this.banks) {
                     // Get the AES key and random IV
+
                     const aes_key = this.decryptRandomIV(bank.enc_aes_key, vault_key, bank.random_iv);
                     // Decrypt the bank data
                     for (const [key, value] of Object.entries(bank)) {
                         if (key === 'enc_aes_key' || key === 'random_iv' || key === 'accounts') {
                             continue;
                         }
-                        bank[key] = this.decrypt(value, aes_key, bank.random_iv);
+                        this.max_tries = 10;
+                        do {
+                            try {
+                                bank[key] = this.decrypt(value, aes_key, bank.random_iv);
+                                this.max_tries -= 1;
+                            } catch (error) {
+                                console.log(error);
+                            }
+                        } while (bank[key] === undefined && this.max_tries > 0);
+
+                        if (this.max_tries === 0) {
+                            alert('Error decrypting bank data');
+                        }
                     }
                 }
-                
-            } catch (error) {
+            })
+            .catch((error) => {
                 // Refresh the page if the user is not authenticated
                 try {
                     if (error.response.status === 401) {
-                        const refresh_status = await this.refreshToken();
-                        if (refresh_status === 200) {
-                            this.fetchUserData();
-                        }
-                        else {
-                            this.$router.push('/login');
-                            alert("Session expired. Please login again.")
-                        }
+                        this.refreshToken().then((response) => {
+                            if (response != "Expired") {
+                                this.fetchUserData();
+                            }
+                        });
                     }
                 } catch (error) {
-                    this.$router.push('/login');
-                    alert("Please login.")
+                    alert(error);
                 }
-            }
+            });
         },
         async logout() {
             const logout_endpoint = this.apiUrl + 'log/out';
@@ -159,7 +174,6 @@ export default {
             const vault_key = ls.get('vault_key', {decrypt: true});
             // Encrypt the AES key with the vault key
             this.aes_key = this.encryptRandomIV(this.aes_key, vault_key, random_iv);
-            alert(this.aes_key);
             const enc_data = {
                 ...this.bankFormData,
                 enc_aes_key: this.aes_key,
@@ -193,6 +207,17 @@ export default {
         },
         prevBankStep() {
             this.currentBankStep -= 1;
+        },
+
+        closeUpdateForm() {
+            this.showUpdateForm = false;
+        },
+        submitUpdateForm(data) {
+            this.updateFormData = { ...this.updateFormData, ...data };
+            
+            alert(this.updateFormData);
+            // Close the form after submission
+            this.closeUpdateForm();
         },
     }
 };

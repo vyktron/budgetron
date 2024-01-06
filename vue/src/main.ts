@@ -24,7 +24,7 @@ const app = createApp(App);
 
 // Global variables
 // Set the API URL globally
-app.config.globalProperties.apiUrl = 'https://127.0.0.1:8089/';
+app.config.globalProperties.apiUrl = 'https://0.0.0.0:8089/';
 
 // Global functions
 // Function to generate AES key of size 512 bits
@@ -56,9 +56,13 @@ app.config.globalProperties.hash = function (data : string, salt : string, itera
 };
 
 // Function to refresh the access token if it is expired
-app.config.globalProperties.refreshToken = async function () {
-  const response = await axios.get(app.config.globalProperties.apiUrl + 'log/refresh', { withCredentials: true })
-  return response.status
+app.config.globalProperties.refreshToken = function () {
+  return axios.get(app.config.globalProperties.apiUrl + 'log/refresh', { withCredentials: true })
+  .catch(_ => {
+    this.$router.push('/login');
+    alert("Session expired. Please login again.");
+    return "Expired";
+  })
 };
 
 app.use(router);

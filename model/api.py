@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["set-cookie", "content-type"],
 )
 
-JWT_ACCESS_TOKEN_EXPIRATION = 5*60 # 5 minutes
+JWT_ACCESS_TOKEN_EXPIRATION = 15*60 # 5 minutes
 JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 # 1 hour
 
 ########## Authentication Endpoints ##########
