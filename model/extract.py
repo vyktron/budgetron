@@ -85,8 +85,8 @@ class WebsiteProvider:
                     'www.ca-valdefrance.fr': 'Val de France',
                     'www.ca-pyrenees-gascogne.fr': 'Pyrénées Gascogne',
                     }}, 
-                {'login' : '11-digit ID'}, 
-                {'password':'6-digit personal code'}]
+                {'login' : '11-digit'}, 
+                {'password':'6-digit'}]
             }
         
     def get_banks(self) -> list:

@@ -1,30 +1,34 @@
 <template>
-    <div>
-        <h1>Signup</h1>
-        <form @submit.prevent="submitForm"> <!-- Use the prevent modifier to avoid page reload -->
-            <label for="email">Email:</label>
-            <input type="email" id="email" v-model="email" required>
-            
-            <label for="password">Password:</label>
-            <input type="password" id="password" v-model="password" required v-on:input="updatePasswordStrength">
-            <p>{{ passwordScore }}</p>
+    <div class="container">
+      <Welcome></Welcome>
+      <div class="right-side">
+        <div class="cred-form">
+            <h1>Sign Up</h1>
+            <div class="horizontal-line"></div>
+            <form @submit.prevent="submitForm"> <!-- Use the prevent modifier to avoid page reload -->
+                <input type="email" id="email" v-model="email" required placeholder="Email address">
+                <input type="password" id="password" v-model="password" required v-on:input="updatePasswordStrength" placeholder="Password">
+                <p>{{ passwordScore }}</p>
 
-            <label for="confirm-password">Confirm Password:</label>
-            <input type="password" id="confirm-password" v-model="confirmPassword" required>
-            
-
-            <button type="submit">Sign Up</button>
-        </form>
-        <p>Already registered? <a href="/login">Login</a></p>
+                <input type="password" id="confirm-password" v-model="confirmPassword" placeholder="Confirm Password" required>
+                <div class="horizontal-line"></div>
+                <button type="submit" class="button-text">SIGN UP</button>
+            </form>
+            <p>Already registered? <a href="/login">Login</a></p>
+        </div>
+      </div>
     </div>
 </template>
-
 <script>
 import { passwordStrength } from 'check-password-strength';
 import CryptoJS from 'crypto-js';
 import axios from 'axios';
-
+import Welcome from "./Welcome.vue";
+import "./Welcome.css"; // Style
 export default {
+    components: {
+      Welcome
+    },
     data() {
         return {
             email: '',
@@ -80,15 +84,24 @@ export default {
                 }
             } 
             catch (error) {
-                if (error.request.status == 409) {
-                    // Show error details
-                    const errorDetails = error.request.response;
-                    // Parse the error details
-                    const errorDetailsObject = JSON.parse(errorDetails);
-                    // Show the error message
-                    alert(errorDetailsObject.detail);
-                } else {
-                alert(error);
+                try {
+                    if (error.response) {
+                        if (error.request.status == 409) {
+                            // Show error details
+                            const errorDetails = error.request.response;
+                            // Parse the error details
+                            const errorDetailsObject = JSON.parse(errorDetails);
+                            // Show the error message
+                            alert(errorDetailsObject.detail);
+                        }
+                    }
+                    // Handle 500 errors
+                    if (error.toJSON().message === "Network Error") {
+                        alert("Check your connection or the service status")
+                        this.$router.push('/login');
+                    }
+                } catch (error) {
+                    alert(error);
                 }
             }
         },

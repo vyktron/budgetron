@@ -177,9 +177,13 @@ def login_website(bank: Bank, request: Request):
     return {"login_format": wp.get_login_conditions(bank.name)}
 
 @app.post("/password_format")
-def password_website(bank: Bank, request: Request):
+def password_website(banks_dict: dict, request: Request):
     # Verify the access token
     _ = verify_access_token(request)
+
+    banks_list = banks_dict["banks"]
+
     wp = WebsiteProvider()
-    return {"password_format": wp.get_password_conditions(bank.name)}
+    password_formats = [wp.get_password_conditions(bank["name"]) for bank in banks_list]
+    return {"password_formats": password_formats}
 

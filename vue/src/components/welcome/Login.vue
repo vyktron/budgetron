@@ -1,17 +1,22 @@
 <template>
-  <div>
-    <h1>Login</h1>
-    <form @submit.prevent="login">
-      <label for="email">Email:</label>
-      <input type="text" id="email" v-model="email" required>
-      <label for="password">Password:</label>
-      <input type="password" id="password" v-model="password" required>
-      <button type="submit">Log In</button>
-    </form>
-    <p>
-      Don't have an account? 
-      <router-link to="/signup">Create an account</router-link>
-    </p>
+  <div class="container">
+    <Welcome></Welcome>
+    <div class="right-side">
+      <div class="cred-form">
+        <h1>Login</h1>
+        <div class="horizontal-line"></div>
+        <form @submit.prevent="login">
+          <input type="text" id="email" v-model="email" placeholder="Email address" required>
+          <input type="password" id="password" v-model="password" placeholder="Password" required>
+          <div class="horizontal-line"></div>
+          <button type="submit" class="button-text">LOGIN</button>
+        </form>
+        <p>
+          Don't have any account? 
+          <router-link to="/signup">Create an account</router-link>
+        </p>
+      </div>
+    </div>
   </div>
 </template>
     
@@ -19,7 +24,12 @@
   <script>
   import axios from 'axios';
   import ls from 'localstorage-slim';
+  import Welcome from './Welcome.vue';
+  import "./Welcome.css" // Style
   export default {
+    components: {
+      Welcome
+    },
     data() {
         return {
             email: '',
@@ -58,15 +68,24 @@
           this.$router.push('/dashboard');
         } 
         catch (error) {
-          if (error.response.status == 400) {
-            // Show error details
-            const errorDetails = error.request.response;
-            // Parse the error details
-            const errorDetailsObject = JSON.parse(errorDetails);
-            // Show the error message
-            alert(errorDetailsObject.detail);
-          } else {
-            alert(error);
+          try {
+            if (error.response) {
+              if (error.response.status == 400) {
+                // Show error details
+                const errorDetails = error.request.response;
+                // Parse the error details
+                const errorDetailsObject = JSON.parse(errorDetails);
+                // Show the error message
+                alert(errorDetailsObject.detail);
+              }
+            }
+            // Handle 500 errors
+            if (error.toJSON().message === "Network Error") {
+                alert("Check your connection or the service status")
+                this.$router.push('/login');
+            }
+          } catch (error) {
+              alert(error);
           }
         }
       },

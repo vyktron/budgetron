@@ -8,7 +8,7 @@
         </div>
         <div class="content">
             <div @click="showUpdateForm = true" class="button-text"><span class="icon"><img src="../assets/refresh_2_line.svg"/></span><span class="text">Last update - yesterday</span></div>
-            <div class="banks">
+            <div class="tables">
                 <table>
                     <tbody>
                         <tr>
@@ -25,7 +25,7 @@
                     <div @click="showBankForm = true" class="open-button"><img class="icon" src="../assets/add_circle_line.svg"/><span class="text">Add Bank</span></div>
                 </table>
             </div>
-            <div class="account">
+            <div>
                 <table>
                     <thead>
                         <tr>
@@ -63,7 +63,7 @@
 import axios from 'axios';
 import BankStep1 from './addbank/Step1.vue'; import BankStep2 from './addbank/Step2.vue'; import BankStep3 from './addbank/Step3.vue';
 import UpdateForm from './update/Form.vue';
-import './Dashboard.css'; // Import Dashboard.css file
+import './Dashboard.css'; // Style
 import ls from 'localstorage-slim';
 export default {
     components: {
@@ -131,12 +131,19 @@ export default {
             .catch((error) => {
                 // Refresh the page if the user is not authenticated
                 try {
-                    if (error.response.status === 401) {
-                        this.refreshToken().then((response) => {
-                            if (response != "Expired") {
-                                this.fetchUserData();
-                            }
-                        });
+                    if (error.response) {
+                        if (error.response.status === 401) {
+                            this.refreshToken().then((response) => {
+                                if (response != "Expired") {
+                                    this.fetchUserData();
+                                }
+                            });
+                        }
+                    }
+                    // Handle Network errors
+                    if (error.toJSON().message === "Network Error") {
+                        alert("Check your connection or the service status")
+                        this.$router.push('/login');
                     }
                 } catch (error) {
                     alert(error);
@@ -187,15 +194,27 @@ export default {
                 })
                 .catch((error) => {
                     // Refresh the access token if it has expired
-                    if (error.response.status === 401) {
-                        const refresh_status = this.refreshAccessToken();
-                        if (refresh_status == 200) {
-                            axios.post(add_bank_endpoint, this.bankFormData, { withCredentials: true })
-                                .then((response) => {
-                                    // Refresh the user data
-                                    this.fetchUserData();
-                                });
+                    try {
+                        if (error.response) {
+                            if (error.response.status === 401) {
+                                const refresh_status = this.refreshAccessToken();
+                                if (refresh_status == 200) {
+                                    axios.post(add_bank_endpoint, this.bankFormData, { withCredentials: true })
+                                        .then((response) => {
+                                            // Refresh the user data
+                                            this.fetchUserData();
+                                        });
+                                }
+                            }
                         }
+                        // Handle Network errors
+                        if (error.toJSON().message === "Network Error") {
+                            alert("Check your connection or the service status")
+                            this.$router.push('/login');
+                        }
+                    }
+                    catch (error) {
+                        alert(error);
                     }
                 });
             // Close the form after submission

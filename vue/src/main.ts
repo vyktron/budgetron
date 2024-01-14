@@ -1,8 +1,8 @@
 import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
-import Login from './components/Login.vue';
-import Signup from './components/Signup.vue';
+import Login from './components/welcome/Login.vue';
+import Signup from './components/welcome/Signup.vue';
 import Dashboard from './components/Dashboard.vue';
 import CryptoJs from 'crypto-js';
 import axios from 'axios';
@@ -24,7 +24,7 @@ const app = createApp(App);
 
 // Global variables
 // Set the API URL globally
-app.config.globalProperties.apiUrl = 'https://0.0.0.0:8089/';
+app.config.globalProperties.apiUrl = 'https://127.0.0.1:8089/';
 
 // Global functions
 // Function to generate AES key of size 512 bits
