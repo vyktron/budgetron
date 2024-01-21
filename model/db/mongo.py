@@ -363,6 +363,59 @@ class DBClient:
         # Add the bank id to the user
         self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$push': {'banks': str(saved_bank.inserted_id)}})
         return str(saved_bank.inserted_id)
+
+    def delete_bank(self, bank : Bank, user_id : str) -> None:
+        #TODO : ADD A CHECK FOR THE USER TO NOT DELETE A BANK MISLEADINGLY (DO ON THE FRONTEND)
+        """
+        Delete a bank from the database and all its accounts and transactions linked to it
+        
+        Parameters:
+        ----------
+        bank: Bank
+            The bank to delete
+        user_id: str
+            The id of the user to delete the bank from
+        
+        Raises:
+        ------
+        Exception
+            If the bank deletion failed (from user or in the banks collection)
+        """
+        # Remove the bank from the user
+        print(bank.id, user_id)
+        result = self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$pull': {'banks': str(bank.id)}})
+        if result.modified_count == 0:
+            raise Exception("Failed to delete bank from user")
+        # Get the accounts from the bank
+        accounts = self.get_accounts(bank)
+        # Delete all the accounts linked to the bank
+        for account in accounts:
+            self.delete_account(account)
+        # Delete the bank
+        result = self.banks_collection.delete_one({'_id': ObjectId(bank.id)})
+        if result.deleted_count == 0:
+            raise Exception("Failed to delete bank")
+    
+    def delete_account(self, account : Account) -> None:
+        """
+        Delete an account from the database and all its transactions linked to it
+        
+        Parameters:
+        ----------
+        account: Account
+            The account to delete
+        
+        Raises:
+        ------
+        Exception
+            If the account deletion failed
+        """
+        # Delete all the transactions linked to the account
+        result = self.transactions_collection.delete_many({'_id': {'$in': [ObjectId(t) for t in account.transactions]}})
+        # Delete the account
+        result = self.accounts_collection.delete_one({'_id': ObjectId(account.id)})
+        if result.deleted_count == 0:
+            raise Exception("Failed to delete account")
     
     def get_banks(self, user : User) -> list[Bank]:
         """
@@ -402,7 +455,7 @@ class DBClient:
         Backup the database into a json file
         """
 
-        collections = ['accounts', 'transactions', 'users']
+        collections = ['accounts', 'transactions', 'banks', 'users']
 
         for collection_name in collections:
 

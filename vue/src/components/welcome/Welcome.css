@@ -4,7 +4,7 @@
     justify-content: space-evenly;
     align-items: center;
     height: 100vh;
-    background-color: #edf2f7;
+    background-color: #181818;
 }
 
 /* Left side */
@@ -17,12 +17,13 @@
 /* Right side */
 .right-side {
     padding-block: 1em;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 50px rgba(194, 194, 194, 0.2);
     border-radius: 50px;
     padding-inline: 5px;
+    margin-right: 15px;
     max-width: 450px;
-    background-color: #ffffff;
-    border: 2px solid #061a5e;
+    background-color: #393b3d;
+    border: 2px solid #000000;
 }
 
 /* Welcome message */
@@ -32,12 +33,19 @@
     font-weight: bold;
 }
 
+
+
 /* Sign in or log in form */
 .cred-form {
     h1 {
         margin-bottom: 1em;
         letter-spacing: 2.5px;
         font-family: "Montserrat", sans-serif;
+        font-weight: bold;
+        color: #f0eade;
+    }
+    input[type="password"] {
+        color : #f0eade;
     }
     input {
         width: 80%;
@@ -46,13 +54,13 @@
         border-radius: 5px;
         margin-block: 0.7em;
         padding-block: 10px;
-        background-color: #edf2f7;
-        border: 2px solid #061a5e;
+        background-color: #2b2b2b;
+        border: 2px solid #000000;
         font-size: 16px;
         font-family: "Montserrat", sans-serif;
     }
     button {
-        margin-top: 1.4em;
+        margin-top: 1.2em;
         width: 150px;
     }
 }
@@ -68,6 +76,7 @@
     .right-side {
         width: 95%;
         padding-block: 0;
+        margin-right:0;
     }
 
     /* Sign in or log in form */

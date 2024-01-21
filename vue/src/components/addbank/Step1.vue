@@ -4,7 +4,7 @@
     <div class="form-steps">
         <ul>
             <li>
-                <span class="button-text active">1</span>
+                <span class="button-text active" style="cursor: default;">1</span>
             </li>
             <li><div class="form-steps-yellow-line"></div></li>
             <li><div class="form-steps-black-line"></div></li>

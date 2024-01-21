@@ -19,7 +19,7 @@
                         <tr v-for="bank in banks" :key="bank.name">
                             <td>{{ bank.name }}</td>
                             <td>{{ bank.client_number }}</td>
-                            <td><img class="close-button" src="../assets/delete_2_line.svg"/></td>
+                            <td><img class="close-button" src="../assets/delete_2_line.svg" @click="deleteBank(bank)"/></td>
                         </tr>
                     </tbody>
                     <div @click="showBankForm = true" class="open-button"><img class="icon" src="../assets/add_circle_line.svg"/><span class="text">Add Bank</span></div>
@@ -105,11 +105,14 @@ export default {
                 const vault_key = ls.get('vault_key', {decrypt: true});
                 for (const bank of this.banks) {
                     // Get the AES key and random IV
-
                     const aes_key = this.decryptRandomIV(bank.enc_aes_key, vault_key, bank.random_iv);
                     // Decrypt the bank data
                     for (const [key, value] of Object.entries(bank)) {
                         if (key === 'enc_aes_key' || key === 'random_iv' || key === 'accounts') {
+                            continue;
+                        }
+                        if (key === '_id') {
+                            bank[key] = value;
                             continue;
                         }
                         this.max_tries = 10;
@@ -237,6 +240,48 @@ export default {
             alert(this.updateFormData);
             // Close the form after submission
             this.closeUpdateForm();
+        },
+        deleteBank(bank) {
+            const delete_bank_endpoint = this.apiUrl + 'delete_bank';
+            // Send the bank data to the server
+            axios.post(delete_bank_endpoint, bank, { withCredentials: true })
+                .then((response) => {
+                    // Refresh the user data
+                    this.fetchUserData();
+                })
+                .catch((error) => {
+                    // Refresh the access token if it has expired
+                    try {
+                        if (error.response) {
+                            if (error.response.status === 401) {
+                                const refresh_status = this.refreshAccessToken();
+                                if (refresh_status == 200) {
+                                    axios.post(delete_bank_endpoint, bank, { withCredentials: true })
+                                        .then((response) => {
+                                            // Refresh the user data
+                                            this.fetchUserData();
+                                        });
+                                }
+                            }
+                            if (error.response.status === 400) {
+                                // Show error details
+                                const errorDetails = error.request.response;
+                                // Parse the error details
+                                const errorDetailsObject = JSON.parse(errorDetails);
+                                // Show the error message
+                                alert(errorDetailsObject.detail);
+                            }
+                        }
+                        // Handle Network errors
+                        if (error.toJSON().message === "Network Error") {
+                            alert("Check your connection or the service status")
+                            this.$router.push('/login');
+                        }
+                    }
+                    catch (error) {
+                        alert(error);
+                    }
+                });
         },
     }
 };

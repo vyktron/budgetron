@@ -153,6 +153,21 @@ def add_bank(bank: Bank, request: Request):
     
     return {"id": inserted_id}
 
+@app.post("/delete_bank")
+def delete_bank(bank: Bank, request: Request):
+    # Verify the access token
+    data = verify_access_token(request)
+    # Get the user from the database
+    user = db_client.user_by_email(data['email'])
+    # Delete the bank
+    try :
+        db_client.delete_bank(bank, user.id)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"message": "Bank deleted"}
+
 ## Endpoints to get the supported banks modules ##
 
 @app.get("/banks")

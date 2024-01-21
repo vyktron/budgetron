@@ -14,7 +14,7 @@
                 <div class="horizontal-line"></div>
                 <button type="submit" class="button-text">SIGN UP</button>
             </form>
-            <p>Already registered? <a href="/login">Login</a></p>
+            <p>Already registered? <a href="/login" style="color:#eebe39">Login</a></p>
         </div>
       </div>
     </div>

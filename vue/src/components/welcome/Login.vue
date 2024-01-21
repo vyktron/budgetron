@@ -13,7 +13,7 @@
         </form>
         <p>
           Don't have any account? 
-          <router-link to="/signup">Create an account</router-link>
+          <router-link to="/signup" style="color: #eebe39;">Create an account</router-link>
         </p>
       </div>
     </div>
