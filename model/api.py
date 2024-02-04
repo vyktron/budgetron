@@ -8,6 +8,9 @@ from model.db.data import User, Account, Transaction, Bank
 from model.db.mongo import DBClient
 from model.db.encryption import *
 from model.extract import BankDataExtractor, WebsiteProvider
+from fastapi import WebSocket
+from datetime import datetime, timedelta
+from fastapi import WebSocket, HTTPException
 
 app = FastAPI()
 
@@ -26,8 +29,8 @@ app.add_middleware(
     allow_headers=["set-cookie", "content-type"],
 )
 
-JWT_ACCESS_TOKEN_EXPIRATION = 15*60 # 5 minutes
-JWT_REFRESH_TOKEN_EXPIRATION = 60 * 60 # 1 hour
+JWT_ACCESS_TOKEN_EXPIRATION = 15*60 # 15 minutes
+JWT_REFRESH_TOKEN_EXPIRATION = 24 * 60 * 60 # 1 hour
 
 ########## Authentication Endpoints ##########
 
@@ -94,7 +97,7 @@ def logout(request : Request):
 
 ########## Utils ##########
 
-def verify_access_token(request: Request):
+def verify_access_token(request: Request | WebSocket):
     # Verify the access token
     try:
         # Get the access token from the request
@@ -201,4 +204,91 @@ def password_website(banks_dict: dict, request: Request):
     wp = WebsiteProvider()
     password_formats = [wp.get_password_conditions(bank["name"]) for bank in banks_list]
     return {"password_formats": password_formats}
+
+## Websocket Endpoints to extract the data from the banks ##
+
+# Decorator function to limit websocket connections per IP
+def limit_connections_per_ip(func):
+    connections = {}
+
+    async def wrapper(websocket: WebSocket):
+        # Get the client's IP address
+        client_ip = websocket.client.host
+
+        # Check if the IP is already in the connections dictionary
+        if client_ip in connections:
+            # Get the timestamp of the last connection
+            last_connection_time = connections[client_ip]
+
+            # Calculate the time difference between the last connection and the current time
+            time_difference = datetime.now() - last_connection_time
+
+            # Check if the time difference is less than 1 minute
+            if time_difference < timedelta(seconds=1):
+                raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+
+        # Update the connections dictionary with the current connection time
+        connections[client_ip] = datetime.now()
+
+        # Call the original function
+        await func(websocket)
+    return wrapper
+
+@limit_connections_per_ip
+@app.websocket("/extract")
+async def extract(websocket: WebSocket):
+    # Verify the access token
+    data = verify_access_token(websocket)
+    # Get the user from the database
+    user = db_client.user_by_email(data['email'])
+
+    await websocket.accept()
+    # Receive the banks from the websocket
+    banks_dict = await websocket.receive_json()
+    
+    passwords = banks_dict["passwords"]
+    banks = banks_dict["banks"]
+    for i, bank in enumerate(banks):
+        password = passwords[bank["client_number"]]
+        # Extract the data
+        await websocket.send_json({"type": "status", "status": "Extracting", "message": i})
+        try:
+            """
+            bde = BankDataExtractor(bank["website"], bank["client_number"], password, bank["name"])
+            accounts, history = bde.extract_data()
+            """
+            # Use fake data for now
+            accounts = [Account(number="80011225164", name="Compte de Dépôt", balances=[1000, 1200], dates=["2023-10-13", "2023-10-14"], currency="EUR"),
+                        Account(number="80025745764", name="Livret A", balances=[5000, 5200], dates=["2023-10-13", "2023-10-14"], currency="EUR")]
+            history = [[Transaction(date="2023-10-13", description="X5950 SNCF INTERNET PARIS", amount=-62.8, currency="EUR"),
+                       Transaction(date="2023-10-13", description="X5950 BURGER KING PAU", amount=-10.5, currency="EUR"),
+                       Transaction(date="2023-10-13", description="X5950 V and B PAU", amount=-4.5, currency="EUR")]]
+        except Exception as e:
+            await websocket.send_json({"type": "error", "message": str(e)})
+            continue
+        
+        await websocket.send_json({"type": "status", "status": "Saving", "message": i})
+        # Get all the accounts associated with the bank
+        accounts_db = db_client.get_accounts(Bank(**bank))
+        # Because data is encrypted, we need to decrypt it before saving it
+        # Send the list of accounts through the websocket connection for decryption
+        #TODO Complete this part when ready
+        if len(accounts_db) != 0:
+            await websocket.send_json({"type": "decrypt", "message": [a.model_dump() for a in accounts_db]})
+        # Save the accounts
+        accounts_to_encrypt = []
+        for i, account in enumerate(accounts):
+            # If the account is not already in the database, send it through the websocket connection for encryption
+            if account.number not in [a.number for a in accounts_db]:
+                accounts_to_encrypt.append(account)
+            
+        await websocket.send_json({"type": "encrypt", "message": [account.model_dump() for account in accounts_to_encrypt]})
+        # Receive the encrypted accounts from the websocket
+        encrypted_accounts = await websocket.receive_json()
+        # Save the encrypted accounts
+        for i, encrypted_account in enumerate(encrypted_accounts):
+            encrypted_accounts[i] = Account(**encrypted_account)
+            db_client.save_account(encrypted_accounts[i], bank["_id"])
+
+    await websocket.close()
 

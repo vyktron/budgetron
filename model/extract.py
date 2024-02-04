@@ -1,44 +1,8 @@
 from woob.core import Woob
 from woob.capabilities.bank import CapBank
-
+from model.db.data import Account, Transaction
+from datetime import date
 import csv
-
-class BankDataExtractor:
-    def __init__(self, website, login, password, bank_module):
-        self.website = website
-        self.login = login
-        self.password = password
-        self.bank_module = bank_module
-
-    def extract_data(self) -> (list, list):
-        """
-        Extract the data from the bank website
-        
-        Returns:
-        -------
-        list
-            The accounts
-        list
-            The list of the history of each account
-        """
-        w = Woob()
-        w.load_backend(self.bank_module, 'bankend_'+self.bank_module, {'website': self.website, 'login': self.login, 'password': self.password})
-        accounts = list(w.iter_accounts())
-        history = []
-        for account in accounts:
-            history.append(list(w.iter_history(account)))
-        return accounts, history
-
-    def save_history(self, history):
-
-        # Save the history in a csv file
-        with open('history2.csv', 'w', newline='') as csvfile:
-            fieldnames = ['date', 'label', 'amount']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in history:
-                writer.writerow({'date': str(row.date), 'label': row.label, 'amount': str(float(row.amount))})
-
 
 class WebsiteProvider:
     def __init__(self):
@@ -105,13 +69,55 @@ class WebsiteProvider:
         return self.modules[bank][3]['password']
 
 
-"""
-# Save the history in a csv file
+class BankDataExtractor:
+    def __init__(self, website, login, password, bank_name):
+        self.website = website
+        self.login = login
+        self.password = password
+        self.bank_module = WebsiteProvider().get_bank_module(bank_name)
 
-with open('history.csv', 'w', newline='') as csvfile:
-    fieldnames = ['date', 'label', 'amount']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-    writer.writeheader()
-    for row in history:
-        writer.writerow({'date': str(row.date), 'label': row.label, 'amount': str(float(row.amount))})
-"""
+    def extract_data(self) -> tuple[list[Account], list[list[Transaction]]]:
+        """
+        Extract the data from the bank website
+        
+        Returns:
+        -------
+        list
+            The accounts
+        list
+            The list of the history of each account
+        """
+        try:
+            w = Woob()
+            w.load_backend(self.bank_module, 'bankend_'+self.bank_module, {'website': self.website, 'login': self.login, 'password': self.password})
+            accounts = list(w.iter_accounts())
+            accounts_model = [Account(number=account.id, name=account.label, balances=[float(account.balance)], dates=[str(date.today())], currency=account.currency) for account in accounts]
+            history = []
+            for account in accounts:
+                transactions = list(w.iter_history(account))
+                # Convert the transactions to the Transaction model
+                history.append([Transaction(date=str(transaction.date), description=transaction.label, amount=float(transaction.amount)) for transaction in transactions])
+            return accounts_model, history
+        except Exception as e:
+            print(e, flush=True)
+            if "password" in str(e) :
+                raise Exception("Password format incorrect")
+            else:
+                raise Exception("Invalid client number or password")
+
+    def save_history(self, history : list[Transaction]):
+
+        # Save the history in a csv file
+        with open('history2.csv', 'w', newline='') as csvfile:
+            fieldnames = ['date', 'label', 'amount']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for transaction in history:
+                writer.writerow({'date': transaction.date, 'label': transaction.label, 'amount': transaction.amount})
+
+if __name__ == "__main__":
+    bde = BankDataExtractor('www.ca-charente-perigord.fr', '******', '*****', 'Crédit Agricole')
+    accounts, history = bde.extract_data()
+    print(accounts)
+    print(history)
+    bde.save_history(history[0])

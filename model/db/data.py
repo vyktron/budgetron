@@ -59,12 +59,15 @@ class Bank(BaseModel):
         The encrypted AES key used to encrypt the data of the bank
     random_iv : str
         The random iv used to encrypt the data of the bank
+    last_update : str
+        The last update of the bank data
     """
     id: str = Field(alias="_id", default=None)
     name: str
     website: str = None
     client_number: str = None
     accounts: list = []
+    last_update: str = None
     enc_aes_key: str = None
     random_iv: str = None
 
@@ -83,8 +86,12 @@ class Account(BaseModel):
         The account number
     name: str
         The account name
-    balance: float
-        The account balance
+    balance: list
+        The list of balances of the account [balance1, balance2, ...]
+    dates: list
+        The list of dates of the balances [date1, date2, ...]
+    currency: str
+        The account currency
     transactions: list[str]
         The list of transactions ids (foreign keys in the database)
     enc_aes_key: str
@@ -96,7 +103,9 @@ class Account(BaseModel):
     id: str = Field(alias="_id", default=None)
     number: str
     name: str
-    balance: float = 0.0
+    balances: list = []
+    dates: list = []
+    currency: str = "EUR"
     transactions: list = []
     enc_aes_key: str = None
     random_iv: str = None
@@ -109,6 +118,8 @@ class Transaction(BaseModel):
 
     """
     Base class for the Transaction model
+    
+    Transactions are encrypted using the random_iv and the enc_aes_key of the account
 
     Attributes:
     ----------
@@ -118,20 +129,17 @@ class Transaction(BaseModel):
         The date of the transaction in the format YYYY-MM-DD
     amount: float
         The amount of the transaction
+    currency: str
+        The currency of the transaction
     description: str
         The description of the transaction
     category: str
         The category of the transaction
-    enc_aes_key: str
-        The encrypted AES key used to encrypt the data of the transaction
-    random_iv: str
-        The random iv used to encrypt the data of the transaction
     """
 
     id: str = Field(alias="_id", default=None)
     date: str = date.today().strftime("%Y-%m-%d")
     amount: float
+    currency: str = "EUR"
     description: str
-    category: str = "To categorize"
-    enc_aes_key: str = None
-    random_iv: str = None
+    category: str = "None"

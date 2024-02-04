@@ -116,7 +116,6 @@ class DBClient:
         return inserted_ids_str
     
     def save_transaction(self, transaction : Transaction, account_id : str) -> str:
-
         try :
             return self.save_transactions([transaction], account_id)[0]
         except Exception as e:
@@ -167,7 +166,7 @@ class DBClient:
             return None
         return Account(**account)
     
-    def get_accounts(self, bank : Bank) -> list[Account]:
+    def get_accounts(self, bank : Bank) -> list[Account] :
         """
         Get all the accounts from a bank account
         
@@ -184,14 +183,12 @@ class DBClient:
         
         accounts = self.accounts_collection.find({'_id': {'$in': [ObjectId(a) for a in bank.accounts]}})
         
-        if accounts is None:
-            return None
-        
         res = []
-        for a in accounts:
-            a['_id'] = str(a['_id'])
-            a['transactions'] = [str(t) for t in a['transactions']]
-            res.append(Account(**a))
+        if accounts is not None:
+            for a in accounts:
+                a['_id'] = str(a['_id'])
+                a['transactions'] = [str(t) for t in a['transactions']]
+                res.append(Account(**a))
         return res
 
     def get_transaction(self, transaction_id : str) -> Transaction:
@@ -382,7 +379,6 @@ class DBClient:
             If the bank deletion failed (from user or in the banks collection)
         """
         # Remove the bank from the user
-        print(bank.id, user_id)
         result = self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$pull': {'banks': str(bank.id)}})
         if result.modified_count == 0:
             raise Exception("Failed to delete bank from user")
@@ -416,6 +412,20 @@ class DBClient:
         result = self.accounts_collection.delete_one({'_id': ObjectId(account.id)})
         if result.deleted_count == 0:
             raise Exception("Failed to delete account")
+    
+    def update_balance(self, account : Account, balance : float, date : str) -> None:
+        """
+        Update the balance of an account
+        
+        Parameters:
+        ----------
+        account: Account
+            The account to update
+        balance: float
+            The new balance
+        date: str
+        """
+        self.accounts_collection.update_one({'_id': ObjectId(account.id)}, {'$push': {'balances': balance, 'dates': date}})
     
     def get_banks(self, user : User) -> list[Bank]:
         """

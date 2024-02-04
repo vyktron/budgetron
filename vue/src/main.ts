@@ -25,27 +25,21 @@ const app = createApp(App);
 // Global variables
 // Set the API URL globally
 app.config.globalProperties.apiUrl = 'https://127.0.0.1:8089/';
+// Set the websocket URL globally
+app.config.globalProperties.wsUrl = 'wss://127.0.0.1:8089/';
 
 // Global functions
 // Function to generate AES key of size 512 bits
 app.config.globalProperties.generateKey = function (size : number = 64) {
   return CryptoJs.enc.Hex.stringify(CryptoJs.lib.WordArray.random(size));
 };
-// Function to encrypt data using AES
-app.config.globalProperties.encrypt = function (data : string, key : string) {
-  return CryptoJs.AES.encrypt(data, key).toString();
-};
-// Function to decrypt data using AES
-app.config.globalProperties.decrypt = function (data : string, key : string) {
-  return CryptoJs.AES.decrypt(data, key).toString(CryptoJs.enc.Utf8);
-};
 
-// Function to encrypt with random IV
+// Function to encrypt with random IV and AES algorithm
 app.config.globalProperties.encryptRandomIV = function (data : string, key : string, randomIV : string) {
   return CryptoJs.AES.encrypt(data, key, { iv: randomIV }).toString();
 };
 
-// Function to decrypt with random IV
+// Function to decrypt with random IV and AES algorithm
 app.config.globalProperties.decryptRandomIV = function (data : string, key : string, randomIV : string) {
   return CryptoJs.AES.decrypt(data, key, { iv: randomIV }).toString(CryptoJs.enc.Utf8);
 };

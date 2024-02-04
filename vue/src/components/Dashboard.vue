@@ -51,8 +51,8 @@
             </div>
             <div v-if="showUpdateForm" class="popup">
                 <div class="popup-content">
-                    <div class="right-close"><img class="close-button" @click="closeUpdateForm" src="../assets/close_line.svg"/></div>
-                    <UpdateForm />
+                    <div class="right-close" v-if="currentUpdateStep==1"><img class="close-button" @click="closeUpdateForm" src="../assets/close_line.svg"/></div>
+                    <component :is="currentUpdateStepComponent" @submit="submitUpdateForm" @finish="finishUpdate" :data="updateFormData"></component>
                 </div>
             </div>
         </div>
@@ -62,13 +62,13 @@
 <script>
 import axios from 'axios';
 import BankStep1 from './addbank/Step1.vue'; import BankStep2 from './addbank/Step2.vue'; import BankStep3 from './addbank/Step3.vue';
-import UpdateForm from './update/Form.vue';
+import UpdateForm from './update/Form.vue'; import UpdateProgress from './update/Progress.vue';
 import './Dashboard.css'; // Style
 import ls from 'localstorage-slim';
 export default {
     components: {
         BankStep1, BankStep2, BankStep3,
-        UpdateForm
+        UpdateForm, UpdateProgress,
     },
     data() {
         return {
@@ -79,8 +79,10 @@ export default {
             showBankForm: false, 
             showUpdateForm: false,
             currentBankStep: 1,
+            currentUpdateStep: 1,
             bankFormData: {}, updateFormData: {},
             aes_key: '',
+            updateFormData: {},
         };
     },
     mounted() {
@@ -89,6 +91,12 @@ export default {
     computed: {
         currentBankStepComponent() {
             return `BankStep${this.currentBankStep}`;
+        },
+        currentUpdateStepComponent() {
+            if (this.currentUpdateStep === 1) {
+                return 'UpdateForm';
+            }
+            return 'UpdateProgress';
         },
     },
     methods: {
@@ -108,17 +116,13 @@ export default {
                     const aes_key = this.decryptRandomIV(bank.enc_aes_key, vault_key, bank.random_iv);
                     // Decrypt the bank data
                     for (const [key, value] of Object.entries(bank)) {
-                        if (key === 'enc_aes_key' || key === 'random_iv' || key === 'accounts') {
-                            continue;
-                        }
-                        if (key === '_id') {
-                            bank[key] = value;
+                        if (key === 'enc_aes_key' || key === 'random_iv' || key === 'accounts' || key === '_id') {
                             continue;
                         }
                         this.max_tries = 10;
                         do {
                             try {
-                                bank[key] = this.decrypt(value, aes_key, bank.random_iv);
+                                bank[key] = this.decryptRandomIV(value, aes_key, bank.random_iv);
                                 this.max_tries -= 1;
                             } catch (error) {
                                 console.log(error);
@@ -169,16 +173,21 @@ export default {
         },
         submitBankForm(data) {
             this.bankFormData = { ...this.bankFormData, ...data };
-            // Send the bank form data to the server7
+            // Send the bank form data to the server
             const add_bank_endpoint = this.apiUrl + 'add_bank';
 
             // Encrypt all fields of the bank form data
             this.aes_key = this.generateKey();
             const random_iv = this.generateKey(16);
+
+            this.bankFormData['last_update'] = "None";
             
             // Encrypt the bank form data
             for (const [key, value] of Object.entries(this.bankFormData)) {
-                this.bankFormData[key] = this.encrypt(value, this.aes_key, random_iv);
+                // Do not encrypt the accounts (which is the list of ids of the accounts of the bank)
+                if (key !== 'accounts') {
+                    this.bankFormData[key] = this.encryptRandomIV(value, this.aes_key, random_iv);
+                }
             }
             
             const vault_key = ls.get('vault_key', {decrypt: true});
@@ -230,16 +239,17 @@ export default {
         prevBankStep() {
             this.currentBankStep -= 1;
         },
-
         closeUpdateForm() {
             this.showUpdateForm = false;
         },
+        finishUpdate() {
+            this.showUpdateForm = false;
+            this.currentUpdateStep = 1;
+            this.fetchUserData();
+        },
         submitUpdateForm(data) {
-            this.updateFormData = { ...this.updateFormData, ...data };
-            
-            alert(this.updateFormData);
-            // Close the form after submission
-            this.closeUpdateForm();
+            this.updateFormData = { ...data };
+            this.currentUpdateStep += 1;
         },
         deleteBank(bank) {
             const delete_bank_endpoint = this.apiUrl + 'delete_bank';

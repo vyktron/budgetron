@@ -1,4 +1,4 @@
-<!-- Step1.vue -->
+<!-- Form.vue : Update form -->
 <template>
   <div>
     <h2 style="margin-top: 10px;">Fill in your credentials</h2>
@@ -14,7 +14,7 @@
         <tr v-for="(bank, index) in user_banks" :key="index">
           <td>{{ bank.name }}</td>
           <td>{{ bank.client_number }}</td>
-          <td><input type="password" class="credentials" clav-model="form[bank.name]" :placeholder="password_formats[index]" /></td>
+          <td><input type="password" class="credentials" v-model="form[bank.client_number]" :placeholder="password_formats[index]" /></td>
         </tr>
       </table>
     <div class="horizontal-line" style="margin-top: 15px"></div>
@@ -68,14 +68,3 @@ export default {
   },
 };
 </script>
-
-<style>
-.form-row {
-  display: flex;
-  align-items: center;
-}
-
-html, body {
-  height: 100%;
-}
-</style>
