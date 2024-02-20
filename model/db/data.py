@@ -127,7 +127,7 @@ class Transaction(BaseModel):
         The id of the transaction (primary key in the database)
     date: str
         The date of the transaction in the format YYYY-MM-DD
-    amount: float
+    amount: str
         The amount of the transaction
     currency: str
         The currency of the transaction
@@ -138,8 +138,8 @@ class Transaction(BaseModel):
     """
 
     id: str = Field(alias="_id", default=None)
-    date: str = date.today().strftime("%Y-%m-%d")
-    amount: float
+    date: str
+    amount: str
     currency: str = "EUR"
     description: str
     category: str = "None"

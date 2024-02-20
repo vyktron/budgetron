@@ -52,7 +52,6 @@ export default {
               axios.post(password_format_endpoint, data, { withCredentials: true })
               .then((response) => {
                 this.password_formats = response.data.password_formats;
-                alert(this.password_formats)
               });
             });
           }

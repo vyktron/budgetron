@@ -29,6 +29,7 @@ export default {
   data() {
     return {
       user_banks: [],
+      crypted_update_dates: [],
       status: [],
     };
   },
@@ -43,6 +44,14 @@ export default {
     // Get the vault key from the local storage
     const vault_key = ls.get('vault_key', {decrypt: true});
 
+    // Get the today's date with the format YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
+    // Encrypt the date for each bank
+    for (let i = 0; i < this.user_banks.length; i++) {
+      this.aes_key  = this.decryptRandomIV(this.user_banks[i].enc_aes_key, vault_key, this.user_banks[i].random_iv);
+      this.encrypted_date = this.encryptRandomIV(this.today, this.aes_key, this.user_banks[i].random_iv);
+      this.crypted_update_dates.push(this.encrypted_date);
+    }
     // Set the websocket connection
     const socket = new WebSocket(this.wsUrl + "extract");
     socket.onopen = () => {
@@ -50,39 +59,129 @@ export default {
       const data = {
         banks: this.user_banks,
         passwords: this.update_form,
+        crypted_update_dates: this.crypted_update_dates,
       };
       socket.send(JSON.stringify(data));
     };
     socket.onmessage = (event) => {
       const response = JSON.parse(event.data);
+
       if (response.type === "status") {
         this.status[response.message] = response.status;
       }
-      if (response.type === "encrypt") {
-        // Normally, the data to encrypt is a list of transactions or accounts to encrypt
-        for (let i = 0; i < response.message.length; i++) {
-          // Create the aes key and the iv
-          this.aes_key = this.generateKey();
-          const random_iv = this.generateKey(16);
-          // Check if the data to encrypt is a list of transactions or accounts
+      if (response.type === "decrypt") {
+
+        this.first_transaction = true;
+        for (const data of response.message) {
+          // Test if the message contains a list of accounts or a list of transactions (transactions have enc_aes_key and random_iv in the response)
+          if (response.enc_aes_key === undefined) {
+            // Get the AES key and random IV
+            this.aes_key = this.decryptRandomIV(data.enc_aes_key, vault_key, data.random_iv);
+          }
+          else if (this.first_transaction) {
+            // Get the AES key and random IV
+            this.aes_key = this.decryptRandomIV(response.enc_aes_key, vault_key, response.random_iv);
+            this.first_transaction = false;
+          }
           
-          const is_account = Object.keys(response.message[i]).includes("transactions");
-          // Encrypt the data
-          for (const [key, value] of Object.entries(response.message[i])) {
-            // Do not encrypt the id and the transactions (list of transactions ids for an account)
-            if (key !== "id" && key !== "transactions") {
-              if (key === "balances" || key === "dates") {
-                for (let j = 0; j < value.length; j++) {
-                  response.message[i][key][j] = this.encryptRandomIV(String(value[j]), this.aes_key, random_iv);
+          // Decrypt the data data
+          for (const [key, value] of Object.entries(data)) {
+            if (key === 'enc_aes_key' || key === 'random_iv' || key === 'transactions' || key === 'id') {
+                continue;
+            }
+            this.max_tries = 10;
+            if (key === "balances" || key === "dates") {
+              for (let j = 0; j < value.length; j++) {
+                do {
+                    try {
+                        data[key][j] = this.decryptRandomIV(value[j], this.aes_key, data.random_iv);
+                        this.max_tries -= 1;
+                    } catch (error) {
+                        console.log(error);
+                    }
+                } while (data[key][j] === undefined && this.max_tries > 0);
+
+                if (this.max_tries === 0) {
+                    alert('Error decrypting data');
                 }
               }
-              else if (key === "enc_aes_key") {
-                response.message[i][key] = this.encryptRandomIV(this.aes_key, vault_key, random_iv);
+            }
+            else {
+              do {
+                  try {
+                    if (this.first_transaction || key === "date") {
+                      data[key] = this.decryptRandomIV(value, this.aes_key, data.random_iv);
+                      this.max_tries -= 1;
+                    }
+                    else {
+                      this.max_tries = -1;
+                    }
+                  } catch (error) {
+                      console.log(error);
+                  }
+              } while (data[key] === undefined && this.max_tries > 0);
+
+              if (this.max_tries === 0) {
+                  alert('Error decrypting data');
               }
-              else if (key === "random_iv") {
-                response.message[i][key] = random_iv;
-              } else {
-                response.message[i][key] = this.encryptRandomIV(value, this.aes_key, random_iv);
+            }    
+          }
+        }
+        // Send the decrypted data to the server
+        socket.send(JSON.stringify(response.message));
+      }
+      if (response.type === "encrypt") {
+        // Normally, the data to encrypt is a list of transactions or accounts to encrypt
+        // It can also be a list of strings (balance or date for an account)
+        if (response.message.length === 0) {
+          return;
+        }
+        else if (typeof response.message[0] === 'string') {
+          // Get it from the response (because it is the same for all the transactions of an account)
+          this.aes_key = response.enc_aes_key;
+          this.random_iv = response.random_iv;
+          // Decrypt the aes key
+          this.aes_key = this.decryptRandomIV(this.aes_key, vault_key, this.random_iv);
+          // Encrypt the list of strings
+          for (let i = 0; i < response.message.length; i++) {
+            response.message[i] = this.encryptRandomIV(response.message[i], vault_key, response.random_iv);
+          }
+        }
+        else {
+          // Encrypt the data
+          for (let i = 0; i < response.message.length; i++) {
+            // Check if the data to encrypt is a list of transactions or accounts
+            const is_account = Object.keys(response.message[i]).includes("transactions");
+            
+            if (is_account) {
+              // Create the aes key and the iv
+              this.aes_key = this.generateKey();
+              this.random_iv = this.generateKey(16);
+            }
+            else {
+              // Get it from the response (because it is the same for all the transactions of an account)
+              this.aes_key = response.enc_aes_key;
+              this.random_iv = response.random_iv;
+              // Decrypt the aes key
+              this.aes_key = this.decryptRandomIV(this.aes_key, vault_key, this.random_iv);
+            }
+            // Encrypt the data
+            for (const [key, value] of Object.entries(response.message[i])) {
+              // Do not encrypt the id and the transactions (list of transactions ids for an account)
+              if (key !== "id" && key !== "transactions") {
+                if (key === "balances" || key === "dates") {
+                  for (let j = 0; j < value.length; j++) {
+                    response.message[i][key][j] = this.encryptRandomIV(String(value[j]), this.aes_key, this.random_iv);
+                  }
+                }
+                else if (key === "enc_aes_key") {
+                  response.message[i][key] = this.encryptRandomIV(this.aes_key, vault_key, this.random_iv);
+                }
+                else if (key === "random_iv") {
+                  response.message[i][key] = this.random_iv;
+                } else {
+                  response.message[i][key] = this.encryptRandomIV(value, this.aes_key, this.random_iv);
+                }
               }
             }
           }

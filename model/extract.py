@@ -91,19 +91,18 @@ class BankDataExtractor:
             w = Woob()
             w.load_backend(self.bank_module, 'bankend_'+self.bank_module, {'website': self.website, 'login': self.login, 'password': self.password})
             accounts = list(w.iter_accounts())
-            accounts_model = [Account(number=account.id, name=account.label, balances=[float(account.balance)], dates=[str(date.today())], currency=account.currency) for account in accounts]
+            accounts_model = [Account(number=account.id, name=account.label, balances=[str(account.balance)], dates=[str(date.today())], currency=account.currency) for account in accounts]
             history = []
             for account in accounts:
                 transactions = list(w.iter_history(account))
                 # Convert the transactions to the Transaction model
-                history.append([Transaction(date=str(transaction.date), description=transaction.label, amount=float(transaction.amount)) for transaction in transactions])
+                history.append([Transaction(date=str(transaction.date), description=transaction.label, amount=str(transaction.amount)) for transaction in transactions])
             return accounts_model, history
         except Exception as e:
-            print(e, flush=True)
             if "password" in str(e) :
-                raise Exception("Password format incorrect")
+                raise ValueError("Password format incorrect")
             else:
-                raise Exception("Invalid client number or password")
+                raise ValueError("Invalid client number or password, please check your bank service")
 
     def save_history(self, history : list[Transaction]):
 

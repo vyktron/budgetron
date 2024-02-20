@@ -313,7 +313,7 @@ class DBClient:
         
         Raises:
         ------
-        Exception
+        DatabaseError
             If the user insertion failed
         """
 
@@ -324,7 +324,7 @@ class DBClient:
         # Handle failed insertion
         saved_user = self.users_collection.insert_one(user_dict)
         if saved_user is None:
-            raise Exception("Failed to save user")
+            raise DatabaseError("Failed to save user")
         return str(saved_user.inserted_id)
     
     def save_bank(self, bank : Bank, user_id : str) -> str:
@@ -345,7 +345,7 @@ class DBClient:
         
         Raises:
         ------
-        Exception
+        DatabaseError
             If the bank insertion failed
         """
 
@@ -355,7 +355,7 @@ class DBClient:
         # Handle failed insertion
         saved_bank = self.banks_collection.insert_one(bank_dict)
         if saved_bank is None:
-            raise Exception("Failed to save bank")
+            raise DatabaseError("Failed to save bank")
         
         # Add the bank id to the user
         self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$push': {'banks': str(saved_bank.inserted_id)}})
@@ -375,13 +375,13 @@ class DBClient:
         
         Raises:
         ------
-        Exception
+        DatabaseError
             If the bank deletion failed (from user or in the banks collection)
         """
         # Remove the bank from the user
         result = self.users_collection.update_one({'_id': ObjectId(user_id)}, {'$pull': {'banks': str(bank.id)}})
         if result.modified_count == 0:
-            raise Exception("Failed to delete bank from user")
+            raise DatabaseError("Failed to delete bank from user")
         # Get the accounts from the bank
         accounts = self.get_accounts(bank)
         # Delete all the accounts linked to the bank
@@ -390,7 +390,7 @@ class DBClient:
         # Delete the bank
         result = self.banks_collection.delete_one({'_id': ObjectId(bank.id)})
         if result.deleted_count == 0:
-            raise Exception("Failed to delete bank")
+            raise DatabaseError("Failed to delete bank")
     
     def delete_account(self, account : Account) -> None:
         """
@@ -403,7 +403,7 @@ class DBClient:
         
         Raises:
         ------
-        Exception
+        DatabaseError
             If the account deletion failed
         """
         # Delete all the transactions linked to the account
@@ -411,7 +411,32 @@ class DBClient:
         # Delete the account
         result = self.accounts_collection.delete_one({'_id': ObjectId(account.id)})
         if result.deleted_count == 0:
-            raise Exception("Failed to delete account")
+            raise DatabaseError("Failed to delete account")
+    
+    def delete_transactions(self, transaction_ids : list, account_id : str) -> None:
+        """
+        Delete transactions from the database
+        
+        Parameters:
+        ----------
+        transactions: list
+            The transaction ids to delete
+        account_id: str
+            The id of the account to delete the transactions from
+        
+        Raises:
+        ------
+        Exception
+            If the transactions deletion failed
+        """
+        result = self.transactions_collection.delete_many({'_id': {'$in': [ObjectId(id) for id in transaction_ids]}})
+        if result.deleted_count == 0 and len(transaction_ids) > 0:
+            raise DatabaseError("Failed to delete transactions")
+        # Delete all the ids from the account
+        result = self.accounts_collection.update_one({'_id': ObjectId(account_id)}, {'$pull': {'transactions': {'$in': [id for id in transaction_ids]}}})
+        if result.modified_count == 0 and len(transaction_ids) > 0:
+            raise DatabaseError("Failed to delete transactions from account")
+        
     
     def update_balance(self, account : Account, balance : float, date : str) -> None:
         """
@@ -426,6 +451,35 @@ class DBClient:
         date: str
         """
         self.accounts_collection.update_one({'_id': ObjectId(account.id)}, {'$push': {'balances': balance, 'dates': date}})
+    
+    def update_bank_last_update(self, bank_id : str, date : str) -> None:
+        """
+        Update the last update of a bank
+        
+        Parameters:
+        ----------
+        bank_id: str
+            The id of the bank to update
+        date: str
+            The new last update
+        """
+        self.banks_collection.update_one({'_id': ObjectId(bank_id)}, {'$set': {'last_update': date}})
+    
+    def update_account_balance(self, account : Account, balance : float, date : str) -> None:
+        """
+        Update the balance of an account
+        
+        Parameters:
+        ----------
+        account: Account
+            The account to update
+        balance: float
+            The new balance
+        date: str
+        """
+        # Verify that the date is more recent than the last date 
+        if len(account.dates) > 0 and account.dates[-1] > date:
+            self.accounts_collection.update_one({'_id': ObjectId(account.id)}, {'$push': {'balances': balance, 'dates': date}})
     
     def get_banks(self, user : User) -> list[Bank]:
         """
@@ -488,5 +542,11 @@ class DBClient:
             # Write documents to a JSON file
             with open(output_file, 'w+') as json_file:
                 json.dump(documents, json_file)
-    
+
+
+class DatabaseError(Exception):
+    """
+    Base class for the DatabaseError exception
+    """
+    pass
 

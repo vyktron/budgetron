@@ -11,6 +11,7 @@ from model.extract import BankDataExtractor, WebsiteProvider
 from fastapi import WebSocket
 from datetime import datetime, timedelta
 from fastapi import WebSocket, HTTPException
+from datetime import datetime
 
 app = FastAPI()
 
@@ -224,7 +225,7 @@ def limit_connections_per_ip(func):
             time_difference = datetime.now() - last_connection_time
 
             # Check if the time difference is less than 1 minute
-            if time_difference < timedelta(seconds=1):
+            if time_difference < timedelta(minutes=1):
                 raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
         # Update the connections dictionary with the current connection time
@@ -240,7 +241,7 @@ async def extract(websocket: WebSocket):
     # Verify the access token
     data = verify_access_token(websocket)
     # Get the user from the database
-    user = db_client.user_by_email(data['email'])
+    _ = db_client.user_by_email(data['email'])
 
     await websocket.accept()
     # Receive the banks from the websocket
@@ -248,47 +249,105 @@ async def extract(websocket: WebSocket):
     
     passwords = banks_dict["passwords"]
     banks = banks_dict["banks"]
-    for i, bank in enumerate(banks):
+    crypted_update_dates = banks_dict["crypted_update_dates"]
+    print(crypted_update_dates)
+
+    for k, bank in enumerate(banks):
         password = passwords[bank["client_number"]]
         # Extract the data
-        await websocket.send_json({"type": "status", "status": "Extracting", "message": i})
+        await websocket.send_json({"type": "status", "status": "Extracting", "message": k})
         try:
             """
             bde = BankDataExtractor(bank["website"], bank["client_number"], password, bank["name"])
             accounts, history = bde.extract_data()
             """
             # Use fake data for now
-            accounts = [Account(number="80011225164", name="Compte de Dépôt", balances=[1000, 1200], dates=["2023-10-13", "2023-10-14"], currency="EUR"),
-                        Account(number="80025745764", name="Livret A", balances=[5000, 5200], dates=["2023-10-13", "2023-10-14"], currency="EUR")]
-            history = [[Transaction(date="2023-10-13", description="X5950 SNCF INTERNET PARIS", amount=-62.8, currency="EUR"),
-                       Transaction(date="2023-10-13", description="X5950 BURGER KING PAU", amount=-10.5, currency="EUR"),
-                       Transaction(date="2023-10-13", description="X5950 V and B PAU", amount=-4.5, currency="EUR")]]
+            accounts = [Account(number="80011225164", name="Compte de Dépôt", balances=["1200"], dates=["2023-10-15"], currency="EUR"),
+                        Account(number="80025745764", name="Livret A", balances=["5200"], dates=["2023-10-13"], currency="EUR")]
+            history = [[Transaction(date="2023-10-13", description="X5950 SNCF INTERNET PARIS", amount="-62.8", currency="EUR"),
+                       Transaction(date="2023-10-14", description="X5950 BURGER KING PAU", amount="-10.5", currency="EUR"),
+                       Transaction(date="2023-10-15", description="X5950 V and B PAU", amount="-4.5", currency="EUR")]]
+            
         except Exception as e:
             await websocket.send_json({"type": "error", "message": str(e)})
             continue
         
-        await websocket.send_json({"type": "status", "status": "Saving", "message": i})
+        await websocket.send_json({"type": "status", "status": "Saving", "message": k})
         # Get all the accounts associated with the bank
         accounts_db = db_client.get_accounts(Bank(**bank))
+        if (bank["last_update"] == "None") or (len(accounts_db) == 0):
+            bank["last_update"] = "2000-01-01"
+        last_update_date = datetime.strptime(bank["last_update"], "%Y-%m-%d")
         # Because data is encrypted, we need to decrypt it before saving it
         # Send the list of accounts through the websocket connection for decryption
-        #TODO Complete this part when ready
+        decrypted_accounts = []
         if len(accounts_db) != 0:
             await websocket.send_json({"type": "decrypt", "message": [a.model_dump() for a in accounts_db]})
-        # Save the accounts
+            # Receive the decrypted accounts from the websocket
+            decrypted_accounts = await websocket.receive_json()
+            decrypted_accounts = [Account(**account) for account in decrypted_accounts]
+            
+        # Save eventual new accounts (numbers that are not in "accounts_db")
         accounts_to_encrypt = []
         for i, account in enumerate(accounts):
             # If the account is not already in the database, send it through the websocket connection for encryption
-            if account.number not in [a.number for a in accounts_db]:
+            if account.number not in [a.number for a in decrypted_accounts]:
                 accounts_to_encrypt.append(account)
-            
-        await websocket.send_json({"type": "encrypt", "message": [account.model_dump() for account in accounts_to_encrypt]})
-        # Receive the encrypted accounts from the websocket
-        encrypted_accounts = await websocket.receive_json()
-        # Save the encrypted accounts
-        for i, encrypted_account in enumerate(encrypted_accounts):
-            encrypted_accounts[i] = Account(**encrypted_account)
-            db_client.save_account(encrypted_accounts[i], bank["_id"])
+            else :
+                # Get the id of the account in "decrypted_accounts" that has the same number as the account in "accounts"
+                index = next((j for j, a in enumerate(decrypted_accounts) if a.number == account.number), None)
+                # Send transactions to decrypt (only the dates will be decrypted in order to correctly the database
+                await websocket.send_json(
+                        {"type": "decrypt", 
+                        "message": [transaction.model_dump() for transaction in db_client.get_transactions(decrypted_accounts[index])],
+                        "enc_aes_key": decrypted_accounts[index].enc_aes_key,
+                        "random_iv": decrypted_accounts[index].random_iv})
+                decrypted_transactions = await websocket.receive_json()
+                # Remove all the transactions that have a date the same as the last update (or later) from the database
+                decrypted_transactions_ids_to_delete = [transaction["id"] for transaction in decrypted_transactions if datetime.strptime(transaction["date"], "%Y-%m-%d") >= last_update_date]
+                db_client.delete_transactions(decrypted_transactions_ids_to_delete, accounts_db[index].id)
+                
+        if len(accounts_to_encrypt) > 0 :
+            # Send the list of accounts through the websocket connection for encryption
+            await websocket.send_json({"type": "encrypt", "message": [account.model_dump() for account in accounts_to_encrypt]})
+            # Receive the encrypted accounts from the websocket
+            encrypted_accounts = await websocket.receive_json()
+            # Save the encrypted accounts
+            for i, encrypted_account in enumerate(encrypted_accounts):
+                encrypted_accounts[i] = Account(**encrypted_account)
+                # Save the account and get the id to link them to their transactions
+                encrypted_accounts[i].id = db_client.save_account(encrypted_accounts[i], bank["_id"])
+            accounts_db += encrypted_accounts
+        
+        # Merge the accounts (we need decrypted for the encryption keys and encrypted for the numbers, to link them to the transactions)
+        # Note that they are in the same order (same index = same account)
+        decrypted_accounts += accounts_to_encrypt
+        
+        #TODO Categorize the transactions
+
+        # Save the history
+        for i, transactions in enumerate(history):
+            # Skip the transactions that have a date before the last update
+            transactions = [transaction for transaction in transactions if datetime.strptime(transaction.date, "%Y-%m-%d") >= last_update_date]
+            # Get the id of the account in "decrypted_accounts" that has the same number as the account in "accounts"
+            index = next((j for j, account in enumerate(decrypted_accounts) if account.number == accounts[i].number), None)
+            # Send the transactions through the websocket connection for encryption
+            await websocket.send_json({"type": "encrypt", "message": [transaction.model_dump() for transaction in transactions], "enc_aes_key": accounts_db[index].enc_aes_key, "random_iv": accounts_db[index].random_iv})
+            # Receive the encrypted transactions from the websocket
+            encrypted_transactions = await websocket.receive_json()
+            # Save the encrypted transactions
+            for j, encrypted_transaction in enumerate(encrypted_transactions):
+                encrypted_transactions[j] = Transaction(**encrypted_transaction)
+            # Save the transactions
+            db_client.save_transactions(encrypted_transactions, accounts_db[index].id)
+            # Update the account balance with encrypted balance and date
+            await websocket.send_json({"type": "encrypt", "message": [accounts[i].balances[-1], accounts[i].dates[-1]], "enc_aes_key": accounts_db[index].enc_aes_key, "random_iv": accounts_db[index].random_iv})
+            encrypted_balance_date = await websocket.receive_json()
+            decrypted_accounts[index].id = accounts_db[index].id
+            db_client.update_account_balance(decrypted_accounts[index], encrypted_balance_date[0], encrypted_balance_date[1])
+        
+        # Update the last update of the bank
+        db_client.update_bank_last_update(bank["_id"], crypted_update_dates[k])
 
     await websocket.close()
 
