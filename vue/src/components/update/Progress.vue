@@ -84,7 +84,7 @@ export default {
             this.first_transaction = false;
           }
           
-          // Decrypt the data data
+          // Decrypt the account data
           for (const [key, value] of Object.entries(data)) {
             if (key === 'enc_aes_key' || key === 'random_iv' || key === 'transactions' || key === 'id') {
                 continue;

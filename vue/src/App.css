@@ -1,6 +1,7 @@
 /* src/App.css */
 body {
-  font-family: "Montserrat", sans-serif;
+  font-family: "Noto Sans", sans-serif;
+  font-weight: 500;
   margin: 0;
   padding: 0;
   background: #393b3d;
@@ -41,14 +42,13 @@ body {
   }
 
 
-.button-text {
-  font-family: "Montserrat", sans-serif;
+.button-text, .button-allowed, .button-disabled {
+  font-family: "Noto Sans", sans-serif;
   font-size: 12px;
   width: max-content;
   letter-spacing: 2.5px;
   font-weight: bold;
   color: #000000;
-  background-color: #a5a5a5;
   border: 2px solid #000000;
   border-radius: 30px;
   transition: all 0.3s ease 0s;
@@ -56,9 +56,26 @@ body {
   outline: none;
 }
 
+.button-text {
+  background-color: #a5a5a5;
+}
+.button-allowed {
+  background-color: #acce80;
+}
+.button-disabled {
+  background-color: #ad4242;
+  cursor: not-allowed;
+}
+
 .active, .button-text:hover {
   background-color: #f7c352;
   border: 2px solid #f7c352;
+  transform: translateY(-1px);
+}
+
+.button-allowed:hover {
+  background-color: #87c03c;
+  border: 2px solid #87c03c;
   transform: translateY(-1px);
 }
 
@@ -91,7 +108,7 @@ body {
 .router-link-exact-active a {
   color: #eebe39;
   font-size: 14px;
-  font-family: "Montserrat", sans-serif;
+  font-family: "Noto Sans", sans-serif;
   font-weight: bold;
   text-decoration: none;
 }

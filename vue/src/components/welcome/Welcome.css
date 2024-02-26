@@ -40,7 +40,7 @@
     h1 {
         margin-bottom: 1em;
         letter-spacing: 2.5px;
-        font-family: "Montserrat", sans-serif;
+        font-family: "Noto Sans", sans-serif;
         font-weight: bold;
         color: #f0eade;
     }
@@ -85,7 +85,7 @@
             padding-bottom: 0;
             margin-bottom: 0.4em;
             letter-spacing: 2.5px;
-            font-family: "Montserrat", sans-serif;
+            font-family: "Noto Sans", sans-serif;
         }
         input {
             width: 80%;

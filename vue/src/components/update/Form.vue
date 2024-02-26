@@ -5,17 +5,21 @@
     <div class="horizontal-line"></div>
     <!-- Form with as many input fields that the user has banks -->
     
-      <table style="padding-inline: 10px;">
-        <tr>
-          <th><span class="icon"><img src="../../assets/bank_line.svg"/></span><span class="text">Bank</span></th>
-          <th><span class="icon"><img src="../../assets/IDcard_line.svg"/></span><span class="text">ID</span></th>
-          <th><span class="icon"><img src="../../assets/safe_lock_line.svg"/></span><span class="text">Secret</span></th>
-        </tr>
-        <tr v-for="(bank, index) in user_banks" :key="index">
-          <td>{{ bank.name }}</td>
-          <td>{{ bank.client_number }}</td>
-          <td><input type="password" class="credentials" v-model="form[bank.client_number]" :placeholder="password_formats[index]" /></td>
-        </tr>
+      <table style="padding-inline: 10px; width: 25vw;">
+        <thead>
+          <tr>
+            <th style="width:35%"><span class="icon"><img src="../../assets/bank_line.svg"/></span><span class="text">Bank</span></th>
+            <th style="width:35%"><span class="icon"><img src="../../assets/IDcard_line.svg"/></span><span class="text">ID</span></th>
+            <th style="width:35%"><span class="icon"><img src="../../assets/safe_lock_line.svg"/></span><span class="text">Secret</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(bank, index) in user_banks" :key="index">
+            <td style="width:35%">{{ bank.name }}</td>
+            <td style="width:35%">{{ bank.client_number }}</td>
+            <td style="width:30%"><input type="password" class="credentials" v-model="form[bank.client_number]" :placeholder="password_formats[index]" /></td>
+          </tr>
+        </tbody>
       </table>
     <div class="horizontal-line" style="margin-top: 15px"></div>
     <button type="submit" class="button-text" @click="submitForm" style="margin-bottom: 15px;">EXTRACT</button>

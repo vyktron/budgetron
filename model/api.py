@@ -140,7 +140,7 @@ def data(request: Request):
     transactions = []
     # Get the transactions from the database
     for account in accounts:
-        transactions = db_client.get_transactions(account)
+        transactions.append([db_client.get_transactions(account), account.enc_aes_key, account.random_iv])
 
     return {"user": user, "banks": banks, "accounts": accounts, "transactions": transactions}
 
@@ -250,7 +250,6 @@ async def extract(websocket: WebSocket):
     passwords = banks_dict["passwords"]
     banks = banks_dict["banks"]
     crypted_update_dates = banks_dict["crypted_update_dates"]
-    print(crypted_update_dates)
 
     for k, bank in enumerate(banks):
         password = passwords[bank["client_number"]]
@@ -306,7 +305,7 @@ async def extract(websocket: WebSocket):
                 # Remove all the transactions that have a date the same as the last update (or later) from the database
                 decrypted_transactions_ids_to_delete = [transaction["id"] for transaction in decrypted_transactions if datetime.strptime(transaction["date"], "%Y-%m-%d") >= last_update_date]
                 db_client.delete_transactions(decrypted_transactions_ids_to_delete, accounts_db[index].id)
-                
+
         if len(accounts_to_encrypt) > 0 :
             # Send the list of accounts through the websocket connection for encryption
             await websocket.send_json({"type": "encrypt", "message": [account.model_dump() for account in accounts_to_encrypt]})

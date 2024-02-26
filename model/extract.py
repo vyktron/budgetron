@@ -94,6 +94,8 @@ class BankDataExtractor:
             accounts_model = [Account(number=account.id, name=account.label, balances=[str(account.balance)], dates=[str(date.today())], currency=account.currency) for account in accounts]
             history = []
             for account in accounts:
+                print(account.owner_type)
+                print(account.type)
                 transactions = list(w.iter_history(account))
                 # Convert the transactions to the Transaction model
                 history.append([Transaction(date=str(transaction.date), description=transaction.label, amount=str(transaction.amount)) for transaction in transactions])
